@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: autoscript_db
+    platform: linux/amd64
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: rootpassword
+      POSTGRES_DB: autoscript_media
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d autoscript_media"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build: 
+      context: ./web_control_plane
+    container_name: autoscript_web
+    platform: linux/amd64
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./web_control_plane/src:/app/src
+      - ./storage:/storage
+    environment:
+      - DATABASE_URL=postgresql://root:rootpassword@db:5432/autoscript_media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./playwright_worker
+    container_name: autoscript_worker
+    platform: linux/amd64
+    restart: always
+    volumes:
+      - ./playwright_worker/src:/app/src
+      - ./storage:/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # Quan trọng: Cho phép container gọi ra máy host
+    environment:
+      - DATABASE_URL=postgresql://root:rootpassword@db:5432/autoscript_media
+      # Gọi ra Chrome đang mở trên máy Mac host thông qua host.docker.internal
+      - CHROME_WS_ENDPOINT=http://host.docker.internal:9522
+
+volumes:
+  pgdata:

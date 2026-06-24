@@ -1,0 +1,17 @@
+<ul class="nav nav-pills mb-4 gap-3 border-bottom border-secondary pb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link tech-font btn-lg px-4 {% if request.url.path == '/ui/image' %}active{% endif %}" href="/ui/image">
+            <i class="bi bi-images me-2"></i> WORKSPACE ẢNH
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link tech-font btn-lg px-4 {% if request.url.path == '/ui/video' %}active{% endif %}" href="/ui/video">
+            <i class="bi bi-film me-2"></i> WORKSPACE VIDEO
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link tech-font btn-lg px-4 {% if request.url.path == '/ui/admin' %}active{% endif %}" href="/ui/admin">
+            <i class="bi bi-gear-fill me-2"></i> QUẢN TRỊ PROMPT
+        </a>
+    </li>
+</ul>

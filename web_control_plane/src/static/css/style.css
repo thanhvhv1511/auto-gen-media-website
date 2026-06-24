@@ -1,0 +1,394 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    /* Màu nền có chiều sâu (Deep Slate/Zinc) thay vì đen thùi lùi */
+    --bg-base: #0f172a;
+    --bg-gradient: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 70%, #020617 100%);
+    
+    /* Bề mặt Glassmorphism */
+    --surface-glass: rgba(30, 41, 59, 0.6);
+    --surface-hover: rgba(51, 65, 85, 0.6);
+    
+    /* Viền tinh tế, hắt sáng góc trên */
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-highlight: rgba(255, 255, 255, 0.15);
+    
+    /* Chữ nghĩa rõ ràng, độ tương phản dịu mắt */
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    
+    /* Accent gradients */
+    --accent-blue: #3b82f6;
+    --btn-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    
+    /* Trạng thái (Phát sáng nhẹ) */
+    --status-pending: #fbbf24;
+    --status-processing: #38bdf8;
+    --status-success: #34d399;
+    --status-danger: #f87171;
+
+    /* Shadow cho độ nổi khối */
+    --shadow-float: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+body {
+    background: var(--bg-base);
+    background-image: var(--bg-gradient);
+    min-height: 100vh;
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+    z-index: 1;
+}
+
+/* Lưới Tech Pattern mờ làm nền chìm */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background-image: 
+        linear-gradient(var(--border-subtle) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.3;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.tech-font { font-family: 'Fira Code', monospace; font-size: 0.85em; }
+
+/* Navbar - Kính mờ siêu mượt */
+.navbar {
+    background: rgba(15, 23, 42, 0.7) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-subtle) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+.navbar-brand { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+
+/* Cards - Nổi khối, viền hắt sáng */
+.card {
+    background: var(--surface-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--border-highlight); /* Hắt sáng từ trên xuống */
+    border-radius: 16px;
+    box-shadow: var(--shadow-float);
+    transition: all 0.3s ease;
+}
+.card-header {
+    background: transparent;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 1.25rem 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.card-body { padding: 1.5rem; }
+
+/* Forms - Sang trọng, input có shadow chìm */
+.form-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+.form-control, .form-select {
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+.form-control:focus, .form-select:focus {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-color: var(--accent-blue);
+    color: white;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), inset 0 2px 4px rgba(0,0,0,0.1);
+}
+.form-control::file-selector-button {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 0.3rem 0.8rem;
+    margin-right: 1rem;
+    font-weight: 500;
+    transition: 0.2s;
+    cursor: pointer;
+}
+.form-control::file-selector-button:hover { background: rgba(255,255,255,0.1); }
+
+/* Buttons - Gradient nổi bật */
+.btn-primary {
+    background: var(--btn-gradient);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+.btn-primary:disabled { background: var(--text-muted); box-shadow: none; transform: none; opacity: 0.7; }
+
+/* Tables - Minimalist */
+.table { color: var(--text-primary); margin-bottom: 0; }
+.table th {
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1rem;
+    background: transparent;
+}
+.table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    vertical-align: middle;
+    padding: 1rem;
+    font-size: 0.9rem;
+    background: transparent;
+}
+.table tbody tr { transition: background-color 0.2s ease; }
+.table tbody tr:hover { background-color: var(--surface-hover); }
+
+/* Status Badges - Phát sáng xịn xò */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border-subtle);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.status-dot { width: 6px; height: 6px; border-radius: 50%; }
+.status-pending { color: var(--status-pending); border-color: rgba(251, 191, 36, 0.2); background: rgba(251, 191, 36, 0.05); } 
+.status-pending .status-dot { background-color: var(--status-pending); box-shadow: 0 0 8px var(--status-pending); }
+
+.status-processing { color: var(--status-processing); border-color: rgba(56, 189, 248, 0.2); background: rgba(56, 189, 248, 0.05); } 
+.status-processing .status-dot { background-color: var(--status-processing); box-shadow: 0 0 8px var(--status-processing); }
+
+.status-success { color: var(--status-success); border-color: rgba(52, 211, 153, 0.2); background: rgba(52, 211, 153, 0.05); } 
+.status-success .status-dot { background-color: var(--status-success); box-shadow: 0 0 8px var(--status-success); }
+
+.status-failed { color: var(--status-danger); border-color: rgba(248, 113, 113, 0.2); background: rgba(248, 113, 113, 0.05); } 
+.status-failed .status-dot { background-color: var(--status-danger); box-shadow: 0 0 8px var(--status-danger); }
+
+/* Modal QA - Sang trọng */
+.modal-content { 
+    background: #0f172a; 
+    border: 1px solid var(--border-highlight); 
+    border-radius: 16px; 
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); 
+}
+.modal-header { border-bottom: 1px solid var(--border-subtle); padding: 1.5rem; background: rgba(255,255,255,0.02); }
+.modal-footer { border-top: 1px solid var(--border-subtle); padding: 1.5rem; background: rgba(0,0,0,0.2); }
+
+/* Thẻ ảnh QA - Animation mượt mà */
+.qa-image-card {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    border: 2px solid transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.qa-image-card img {
+    width: 100%;
+    aspect-ratio: 9/16;
+    object-fit: cover;
+    transition: transform 0.5s ease, opacity 0.3s ease;
+}
+.qa-image-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-glow); border-color: var(--border-highlight); }
+.qa-image-card:hover img { transform: scale(1.05); }
+
+/* Trạng thái ảnh bị loại bỏ (Rejected) */
+.qa-image-card.rejected {
+    border-color: var(--status-danger);
+    transform: scale(0.95);
+    box-shadow: none;
+}
+.qa-image-card.rejected img { opacity: 0.3; filter: grayscale(100%) contrast(1.2); transform: scale(1); }
+.qa-image-card.rejected::after {
+    content: ''; position: absolute; inset: 0; background: rgba(248, 113, 113, 0.15); pointer-events: none;
+}
+
+.btn-toggle-img {
+    position: absolute;
+    top: 12px; right: 12px;
+    z-index: 10;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    color: white;
+    transition: all 0.2s ease;
+}
+.qa-image-card:not(.rejected) .btn-toggle-img:hover { background: var(--status-danger); border-color: var(--status-danger); transform: scale(1.1); }
+.qa-image-card.rejected .btn-toggle-img { background: var(--status-danger); border-color: transparent; }
+.qa-image-card.rejected .btn-toggle-img:hover { background: #dc2626; transform: scale(1.1); }
+
+/* ==========================================
+   CSS BỔ TRỢ CHO ADMIN PANEL (PROMPT STUDIO)
+   ========================================== */
+
+/* Thẻ Concept (Cột trái) */
+.concept-card { 
+    cursor: pointer; 
+    border: 1px solid transparent; 
+    transition: all 0.2s ease; 
+    background: rgba(255,255,255,0.05); 
+    border-radius: 8px;
+}
+.concept-card:hover { 
+    background: rgba(255,255,255,0.1); 
+    transform: translateX(4px);
+}
+.concept-card.active { 
+    border-color: var(--accent-blue); 
+    background: rgba(59, 130, 246, 0.1); 
+    border-left: 4px solid var(--accent-blue); 
+}
+
+/* Các thành phần Form & Bảng */
+.slot-checkbox { 
+    width: 1.2em; 
+    height: 1.2em; 
+    cursor: pointer; 
+}
+.scene-form-card { 
+    background: #1e2230; 
+    border: 1px solid var(--border-subtle); 
+    border-radius: 10px;
+}
+
+/* Nav Tabs cho cột Cấu hình chi tiết */
+.nav-tabs {
+    border-bottom: 1px solid var(--border-subtle);
+}
+.nav-tabs .nav-link { 
+    color: var(--text-secondary); 
+    border: none; 
+    border-bottom: 2px solid transparent; 
+    font-weight: 500;
+    padding: 0.75rem 1rem;
+    transition: 0.2s;
+}
+.nav-tabs .nav-link:hover {
+    color: var(--text-primary);
+}
+.nav-tabs .nav-link.active { 
+    color: var(--text-primary); 
+    background: transparent; 
+    border-bottom: 2px solid var(--accent-blue); 
+}
+
+/* ==========================================
+   TWEAK UX: TOGGLE SWITCH CHUẨN IOS / MODERN
+   ========================================== */
+.switch-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    margin-bottom: 0;
+}
+.switch input { 
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255, 255, 255, 0.1);
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 34px;
+    border: 1px solid var(--border-subtle);
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: var(--text-secondary);
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+input:checked + .slider {
+    background-color: var(--status-success);
+    border-color: var(--status-success);
+}
+input:checked + .slider:before {
+    transform: translateX(18px);
+    background-color: #fff;
+}
+/* Xóa bỏ viền input cho ô nhập số để nhìn "clean" hơn */
+.input-clean {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid transparent;
+    transition: 0.2s;
+}
+.input-clean:hover, .input-clean:focus {
+    border-bottom: 1px solid var(--accent-blue);
+    background: rgba(0,0,0,0.4);
+}
+
+
+/* Style cho cụm nút Sort dạng Toggle mượt mà */
+.custom-sort-group {
+    background-color: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50px;
+    padding: 3px;
+    display: inline-flex;
+}
+.custom-sort-group .btn-check:checked + .btn {
+    background-color: rgba(255, 255, 255, 0.15); /* Nền sáng nhẹ khi active */
+    color: #fff !important;
+    font-weight: 600;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+.custom-sort-group .btn {
+    color: #8b949e; /* Màu chữ khi chưa active */
+    border: none;
+    border-radius: 50px;
+    transition: all 0.25s ease;
+    padding: 2px 12px;
+}
+.custom-sort-group .btn:hover {
+    color: #c9d1d9;
+}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+    {% include "components/_nav_tabs.html" %}
+
+    <div class="tab-content" id="pipelineTabsContent">
+        {% include "components/_workspace_image.html" %}
+        {% include "components/_workspace_video.html" %}
+        {% include "components/_workspace_prompt.html" %}
+    </div>
+
+    {% include "components/_modals.html" %}
+{% endblock %}

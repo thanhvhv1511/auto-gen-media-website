@@ -1,0 +1,117 @@
+<div class="row g-4 h-100" style="min-height: 75vh;">
+    
+    <div class="col-md-3 d-flex flex-column">
+        <div class="card h-100 flex-grow-1">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-folder-fill text-warning me-2"></i> Concepts</span>
+                <button class="btn btn-sm btn-primary py-1 px-3 tech-font" onclick="addNewConcept()"><i class="bi bi-plus-lg"></i> Thêm</button>
+            </div>
+            <div class="card-body p-2" style="overflow-y: auto;">
+                <div class="d-flex flex-column gap-2" id="conceptSidebarList">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-9 d-flex flex-column">
+        <div class="card h-100 flex-grow-1">
+            
+            <div class="card-header d-flex align-items-center justify-content-between gap-3">
+                <h5 class="mb-0 text-info fw-bold" id="activeConceptTitle">Chưa chọn Concept</h5>
+                <span class="badge bg-success tech-font d-none" id="conceptSavedBadge"><i class="bi bi-check-circle"></i> Đã đồng bộ DB</span>
+            </div>
+            
+            <div class="card-body p-0 d-flex flex-column">
+                <ul class="nav nav-tabs px-3 pt-3" id="conceptDetailTabs">
+                    <li class="nav-item"><button class="nav-link active tech-font" data-bs-toggle="tab" data-bs-target="#tab-base">1. Base Prompt</button></li>
+                    <li class="nav-item"><button class="nav-link tech-font" data-bs-toggle="tab" data-bs-target="#tab-bg">2. Background</button></li>
+                    <li class="nav-item"><button class="nav-link tech-font" data-bs-toggle="tab" data-bs-target="#tab-video">3. Phân Cảnh Video</button></li>
+                    <li class="nav-item"><button class="nav-link tech-font" data-bs-toggle="tab" data-bs-target="#tab-poses">4. Tư Thế Ảnh</button></li>
+                </ul>
+
+                <div class="tab-content p-4 flex-grow-1" style="overflow-y: auto;">
+                    
+                    <div class="tab-pane fade show active" id="tab-base">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label class="form-label text-warning"><i class="bi bi-image"></i> Prompt Bản Lề (Hình Ảnh)</label>
+                                <textarea class="form-control tech-font p-3" id="conceptBasePromptImage" rows="12" style="line-height: 1.6;"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-purple"><i class="bi bi-film"></i> Prompt Bản Lề (Video)</label>
+                                <textarea class="form-control tech-font p-3 border-purple" id="conceptBasePromptVideo" rows="12" style="line-height: 1.6; border-color: rgba(168, 85, 247, 0.4);"></textarea>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-end">
+                            <button class="btn btn-primary px-4 tech-font shadow-glow" onclick="saveBasePrompt()"><i class="bi bi-save"></i> Lưu Base Prompts</button>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-bg">
+                        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+                            <div>
+                                <h6 class="text-light mb-1"><i class="bi bi-image"></i> Cấu hình Bối cảnh (Background Matrix)</h6>
+                                <span class="text-muted small">Mọi thay đổi về Trọng số và Trạng thái liên kết sẽ được tự động đồng bộ dựa theo ID của Background.</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-light tech-font" onclick="addNewBackground()"><i class="bi bi-plus"></i> Mới</button>
+                                <button class="btn btn-sm btn-primary tech-font shadow-glow px-4" onclick="saveAllBackgrounds()">
+                                    <i class="bi bi-save me-1"></i> Lưu Thay Đổi
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive pe-2" style="max-height: 50vh; overflow-y: auto;">
+                            <table class="table table-borderless table-hover align-middle">
+                                <thead class="position-sticky top-0" style="background: var(--bg-base); z-index: 10;">
+                                    <tr class="border-bottom border-secondary">
+                                        <th style="width: 45%;" class="ps-0 text-light">Tên Bối Cảnh (Background)</th>
+                                        <th style="width: 20%;" class="text-center">Trọng số (Weight)</th>
+                                        <th style="width: 20%;" class="text-center">Trạng thái</th>
+                                        <th style="width: 15%;" class="text-end pe-3">Hành Động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bgLinkerTable">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-video">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h6 class="text-purple mb-0"><i class="bi bi-film"></i> Quản lý Phân Cảnh (Video Segments)</h6>
+                            <button class="btn btn-sm btn-primary tech-font shadow-glow" onclick="addNewVideoScene()"><i class="bi bi-plus"></i> Thêm Phân Cảnh</button>
+                        </div>
+                        <div class="d-flex flex-column gap-3" id="videoScenesList">
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-poses">
+                        <ul class="nav nav-pills mb-4 gap-2" id="poseAnatomyTabs">
+                            <li class="nav-item"><button class="nav-link active btn-sm tech-font" data-bs-toggle="pill" data-bs-target="#pose-upper">Thân Trên</button></li>
+                            <li class="nav-item"><button class="nav-link btn-sm tech-font" data-bs-toggle="pill" data-bs-target="#pose-leg">Dáng Chân</button></li>
+                            <li class="nav-item"><button class="nav-link btn-sm tech-font" data-bs-toggle="pill" data-bs-target="#pose-hand">Dáng Tay</button></li>
+                        </ul>
+                        
+                        <div class="tab-content border border-secondary rounded p-4" style="background: rgba(0,0,0,0.1);">
+                            <div class="tab-pane fade show active" id="pose-upper">
+                                <div class="d-flex flex-column gap-3" id="poseUpperList"></div>
+                                <button class="btn btn-sm btn-outline-success mt-3 tech-font" onclick="addNewPose('upperBody')"><i class="bi bi-plus"></i> Thêm tư thế Thân Trên</button>
+                            </div>
+                            <div class="tab-pane fade" id="pose-leg">
+                                <div class="d-flex flex-column gap-3" id="poseLegList"></div>
+                                <button class="btn btn-sm btn-outline-success mt-3 tech-font" onclick="addNewPose('leg')"><i class="bi bi-plus"></i> Thêm tư thế Dáng Chân</button>
+                            </div>
+                            <div class="tab-pane fade" id="pose-hand">
+                                <div class="d-flex flex-column gap-3" id="poseHandList"></div>
+                                <button class="btn btn-sm btn-outline-success mt-3 tech-font" onclick="addNewPose('hand')"><i class="bi bi-plus"></i> Thêm tư thế Dáng Tay</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

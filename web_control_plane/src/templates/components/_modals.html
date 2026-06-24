@@ -1,0 +1,240 @@
+<div class="modal fade" id="builderModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content" style="height: 85vh;">
+            <div class="modal-header bg-dark border-bottom border-secondary">
+                <h5 class="modal-title tech-font text-light">
+                    <i class="bi bi-film text-info me-2"></i> Trạm Lắp Ráp Kịch Bản Video
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0 d-flex" style="background: #0f111a; overflow: hidden;">
+                <div class="col-8 p-4 d-flex flex-column border-end border-secondary" style="overflow-y: auto;">
+                    <div class="mb-4">
+                        <label class="form-label text-warning"><i class="bi bi-card-text"></i> Base Prompt</label>
+                        <textarea class="form-control tech-font text-light" id="basePromptText" rows="2" style="background: rgba(255,255,255,0.05);">Video thời trang dọc 9:16, chất lượng cinematic 4k, ánh sáng studio mềm mại. Người mẫu giữ thần thái chuyên nghiệp.</textarea>
+                    </div>
+                    <h6 class="text-info mb-3"><i class="bi bi-distribute-vertical"></i> Trục Thời Gian (10s Omni Flash)</h6>
+                    <div class="timeline-container d-flex flex-column gap-3">
+                        <div class="card border-secondary bg-transparent"><div class="card-body p-3 d-flex align-items-center gap-3"><span class="badge bg-primary tech-font" style="width: 80px;">0.0s - 2.5s</span><select class="form-select tech-font bg-dark text-light border-secondary scene-slot" data-slot="1" id="slot1"></select></div></div>
+                        <div class="card border-secondary bg-transparent"><div class="card-body p-3 d-flex align-items-center gap-3"><span class="badge bg-primary tech-font" style="width: 80px;">2.5s - 5.0s</span><select class="form-select tech-font bg-dark text-light border-secondary scene-slot" data-slot="2" id="slot2"></select></div></div>
+                        <div class="card border-secondary bg-transparent"><div class="card-body p-3 d-flex align-items-center gap-3"><span class="badge bg-primary tech-font" style="width: 80px;">5.0s - 7.5s</span><select class="form-select tech-font bg-dark text-light border-secondary scene-slot" data-slot="3" id="slot3"></select></div></div>
+                        <div class="card border-secondary bg-transparent"><div class="card-body p-3 d-flex align-items-center gap-3"><span class="badge bg-primary tech-font" style="width: 80px;">7.5s - 10s</span><select class="form-select tech-font bg-dark text-light border-secondary scene-slot" data-slot="4" id="slot4"></select></div></div>
+                    </div>
+                </div>
+                <div class="col-4 p-4 d-flex flex-column" style="background: rgba(0,0,0,0.2); overflow-y: auto;">
+                    <h6 class="text-success mb-3"><i class="bi bi-collection-play"></i> Kho Phân Cảnh</h6>
+                    <div class="alert alert-dark border-secondary p-2 small tech-font text-muted"><i class="bi bi-info-circle"></i> Cảnh bị khóa do không khớp Feature Flag.</div>
+                    <div class="d-flex flex-column gap-2" id="sceneLibraryList"></div>
+                </div>
+            </div>
+            <div class="modal-footer bg-dark border-top border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-success fw-bold" onclick="saveTimelineConfig()"><i class="bi bi-check-circle"></i> Xác Nhận & Lưu Kịch Bản</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="qaModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title tech-font" id="qaModalTitle">Quality Assurance (QA)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pb-2">
+                <p class="text-muted small mb-4"><i class="bi bi-info-circle me-1"></i> Loại bỏ output lỗi. Các ảnh ĐẠT sẽ được đẩy sang WORKSPACE VIDEO.</p>
+                <div class="row g-4" id="qaImageGrid"></div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between align-items-center">
+                <span class="tech-font text-secondary" id="qaStatusCount">Active nodes: 4/4</span>
+                <button type="button" class="btn btn-primary" id="btnTriggerVideo">Đẩy Sang Luồng Video <i class="bi bi-arrow-right ms-1"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="videoModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title tech-font text-light" id="videoModalTitle">Video Output Preview</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center pb-4 pt-0" id="videoModalBody"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addConceptModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title tech-font text-warning"><i class="bi bi-folder-plus"></i> Tạo Concept Mới</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label text-light small">Tên Concept (VD: Dạo Phố Mùa Hè)</label>
+                    <input type="text" class="form-control tech-font bg-dark text-light border-secondary" id="newConceptName" placeholder="Nhập tên concept...">
+                    <small class="text-muted mt-1 d-block fst-italic">Hệ thống sẽ tự động sinh file prompt tĩnh (.txt) tương ứng.</small>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-success fw-bold" onclick="submitNewConcept()"><i class="bi bi-check-lg"></i> Khởi Tạo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addBgModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-secondary" style="background: var(--bg-base);">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title text-info tech-font"><i class="bi bi-image"></i> Thêm Bối Cảnh (Background)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label text-warning tech-font">Tên hiển thị</label>
+                    <input type="text" class="form-control tech-font" id="newBgName" placeholder="VD: Phòng ngủ Hàn Quốc">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-info tech-font">Prompt Bối cảnh (Mô tả chi tiết)</label>
+                    <textarea class="form-control tech-font" id="newBgText" rows="3" placeholder="VD: korean style bedroom, pastel colors, soft morning lighting, 8k resolution..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted tech-font">Trọng số mặc định (Weight)</label>
+                    <input type="number" class="form-control tech-font w-50" id="newBgWeight" value="10">
+                </div>
+            </div>
+            <div class="modal-footer border-top border-secondary">
+                <button type="button" class="btn btn-outline-secondary tech-font" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary tech-font shadow-glow" onclick="submitNewBackground()">Thêm Mới</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editBgModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-secondary" style="background: var(--bg-base); backdrop-filter: blur(10px);">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title text-warning tech-font"><i class="bi bi-pencil-square"></i> Chỉnh Sửa Bối Cảnh</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="editBgId">
+                <div class="mb-3">
+                    <label class="form-label text-warning tech-font">Tên hiển thị</label>
+                    <input type="text" class="form-control tech-font" id="editBgName">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-info tech-font">Prompt Bối cảnh (Mô tả chi tiết)</label>
+                    <textarea class="form-control tech-font" id="editBgText" rows="4"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted tech-font">Trọng số (Weight)</label>
+                    <input type="number" class="form-control tech-font w-50" id="editBgWeight">
+                </div>
+            </div>
+            <div class="modal-footer border-top border-secondary">
+                <button type="button" class="btn btn-outline-secondary tech-font" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-warning tech-font text-dark fw-bold" onclick="submitEditBackground()">Cập Nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addVideoSceneModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-light border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-info tech-font"><i class="bi bi-film"></i> Thêm Phân Cảnh Mới</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label tech-font text-warning small">MÃ CẢNH (Viết liền, không dấu)</label>
+                    <input type="text" class="form-control bg-dark text-light border-secondary tech-font" id="newSceneId" placeholder="VD: scene_chinh_ao">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label tech-font text-muted small">TÊN CẢNH</label>
+                    <input type="text" class="form-control bg-dark text-light border-secondary tech-font" id="newSceneName" placeholder="VD: Kéo nhẹ gấu áo khoe chất liệu">
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-secondary tech-font" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary tech-font shadow-glow" onclick="submitNewVideoScene()"><i class="bi bi-save"></i> Tạo Mới</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="saveSuccessToast" class="toast align-items-center text-white bg-success border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body tech-font">
+                <i class="bi bi-check-circle-fill me-2"></i> <span id="toastMessage">Đã lưu thay đổi thành công!</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white m-auto me-2" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content bg-dark text-light border-danger">
+            <div class="modal-header border-secondary py-2">
+                <h6 class="modal-title text-danger tech-font fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> Xác nhận xóa</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-3">
+                <p class="mb-0 small" id="deleteModalBodyText">Bạn có chắc chắn muốn xóa phân cảnh này không?</p>
+            </div>
+            <div class="modal-footer border-secondary py-1">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-danger px-3" id="confirmDeleteBtn">Xóa ngay</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addPoseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-light border-secondary">
+            <div class="modal-header border-secondary py-2">
+                <h5 class="modal-title text-success tech-font small fw-bold"><i class="bi bi-person-bounding-box"></i> Thêm Tư Thế Mới</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-3">
+                <input type="hidden" id="newPoseBodyPart">
+                
+                <div class="mb-3">
+                    <label class="form-label tech-font text-muted small">NỘI DUNG PROMPT TƯ THẾ</label>
+                    <textarea class="form-control bg-dark text-light border-secondary tech-font" id="newPoseText" rows="3" placeholder="VD: Thân trên hơi nghiêng nhẹ sang trái..."></textarea>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label tech-font text-warning small">TRỌNG SỐ RANDOM (WEIGHT)</label>
+                    <input type="number" class="form-control bg-dark text-warning border-secondary tech-font" id="newPoseWeight" value="10" style="width: 120px;">
+                </div>
+            </div>
+            <div class="modal-footer border-secondary py-1">
+                <button type="button" class="btn btn-sm btn-outline-secondary tech-font" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-success tech-font px-3" onclick="submitNewPose()"><i class="bi bi-plus-lg"></i> Thêm Mới</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="saveWarningToast" class="toast align-items-center text-dark bg-warning border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body tech-font fw-bold">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> Không có thay đổi nào để lưu!
+            </div>
+            <button type="button" class="btn-close m-auto me-2" data-bs-toast="toast" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>

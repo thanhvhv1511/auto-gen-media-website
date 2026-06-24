@@ -1,0 +1,16 @@
+{
+  "name": "playwright-worker",
+  "version": "1.0.0",
+  "description": "Worker kéo job từ DB và chạy Playwright",
+  "main": "src/worker_image.js",
+  "scripts": {
+    "worker:image": "node src/worker_image.js",
+    "worker:video": "node src/worker_video_dry.js",
+    "start": "npm run worker:image & npm run worker:video & wait"
+  },
+  "dependencies": {
+    "mysql2": "^3.22.5",
+    "pg": "^8.22.0",
+    "playwright": "^1.42.0"
+  }
+}

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autoscript Media - Control Plane</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-dark mb-4 sticky-top">
+        <div class="container-fluid px-4">
+            <span class="navbar-brand d-flex align-items-center gap-2">
+                <span style="font-size: 1.5rem;">⚡</span> Autoscript Media
+            </span>
+            <div class="d-flex align-items-center gap-3">
+                <span class="tech-font text-muted fs-7" id="clock">00:00:00</span>
+                <span class="badge bg-success bg-opacity-25 text-success border border-success rounded-pill px-3 py-2">
+                    <span class="status-dot bg-success shadow-none mb-0"></span> Worker: Online
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        <div class="row g-4">
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                        Tạo Lệnh Mới
+                    </div>
+                    <div class="card-body">
+                        <form id="jobForm">
+                            <div class="mb-3">
+                                <label class="form-label">Mã SP / Ref ID</label>
+                                <input type="text" class="form-control tech-font" id="productCode" placeholder="vd: sp001" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Kịch Bản (Concept)</label>
+                                <select class="form-select" id="conceptId" required>
+                                    <option value="1">Concept 1: Ngồi Selfie (Cận cảnh)</option>
+                                    <option value="2">Concept 2: Đứng Full (Đường phố)</option>
+                                    <option value="3">Concept 3: Đứng che mặt (Studio)</option>
+                                </select>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label">Tài Nguyên Gốc (Input)</label>
+                                <input class="form-control text-muted" type="file" id="imageFile" accept="image/*" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 py-2" id="submitBtn">
+                                Đẩy Lệnh Vào Hàng Đợi
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            Trạng Thái Tiến Trình
+                        </div>
+                        <span class="badge bg-dark border border-secondary tech-font">Tự động làm mới: 3s</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-borderless mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style="padding-left: 1.5rem;">Job ID</th>
+                                        <th>Target</th>
+                                        <th>Task Type</th>
+                                        <th>Status</th>
+                                        <th>Timestamp</th>
+                                        <th>Generated Prompt</th>
+                                        <th class="text-end" style="padding-right: 1.5rem;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="jobTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="mediaModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title tech-font text-light" id="modalTitle">Output Viewer</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body pt-4" id="modalBody">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const mediaModal = new bootstrap.Modal(document.getElementById('mediaModal'));
+
+        // Cập nhật đồng hồ góc phải
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-GB');
+        }, 1000);
+
+        // Xử lý Form Submit
+        document.getElementById('jobForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang xử lý...`;
+
+            const formData = new FormData();
+            formData.append('product_code', document.getElementById('productCode').value);
+            formData.append('concept_id', document.getElementById('conceptId').value);
+            formData.append('file', document.getElementById('imageFile').files[0]);
+
+            try {
+                const response = await fetch('/jobs/image', { method: 'POST', body: formData });
+                if(response.ok) {
+                    document.getElementById('jobForm').reset();
+                    fetchJobs();
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        });
+
+        // Kích hoạt Job Video
+        async function triggerVideoJob(imageJobId) {
+            if(!confirm(`Xác nhận kích hoạt tiến trình tạo Video từ Job #${imageJobId}?`)) return;
+            await fetch(`/jobs/video/${imageJobId}`, { method: 'POST' });
+            fetchJobs();
+        }
+
+        // Xem trước Media
+        function viewMedia(productCode, jobId, jobType) {
+            document.getElementById('modalTitle').innerText = `[${productCode.toUpperCase()}] - Task #${jobId} Results`;
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = '';
+
+            if (jobType === 'image') {
+                let html = '<div class="row g-3">';
+                for(let i=1; i<=4; i++) {
+                    const imgUrl = `/media/output_images/${productCode}_${jobId}_0${i}.jpg`;
+                    html += `
+                        <div class="col-6">
+                            <img src="${imgUrl}" class="gallery-img shadow-sm" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22400%22%20height%3D%22600%22%20viewBox%3D%220%200%20400%20600%22%3E%3Crect%20fill%3D%22%231f2937%22%20width%3D%22400%22%20height%3D%22600%22%2F%3E%3Ctext%20fill%3D%22%239ca3af%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20dy%3D%2210.5%22%20font-weight%3D%22bold%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3EĐang render...%3C%2Ftext%3E%3C%2Fsvg%3E'" alt="Output ${i}">
+                        </div>`;
+                }
+                html += '</div>';
+                modalBody.innerHTML = html;
+            } else if (jobType === 'video') {
+                const vidUrl = `/media/output_videos/${productCode}/${productCode}_${jobId}_01.mp4`;
+                modalBody.innerHTML = `
+                    <div class="text-center">
+                        <video width="100%" controls autoplay loop class="gallery-img shadow" style="max-height: 65vh; max-width: 400px;">
+                            <source src="${vidUrl}" type="video/mp4">
+                            Browser does not support video.
+                        </video>
+                    </div>`;
+            }
+            mediaModal.show();
+        }
+
+        // Load bảng Job
+        async function fetchJobs() {
+            try {
+                const response = await fetch('/jobs');
+                const jobs = await response.json();
+                const tbody = document.getElementById('jobTableBody');
+                tbody.innerHTML = ''; 
+
+                jobs.forEach(job => {
+                    const statusClass = `status-${job.status}`;
+                    const timeString = new Date(job.updated_at).toLocaleTimeString('en-GB');
+                    
+                    let actionButton = '';
+                    if (job.status === 'success') {
+                        actionButton = `<button class="btn btn-action btn-outline-info me-2" onclick="viewMedia('${job.product_code}', ${job.id}, '${job.job_type}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View
+                        </button>`;
+                        
+                        if (job.job_type === 'image') {
+                            actionButton += `<button class="btn btn-action btn-outline-warning" onclick="triggerVideoJob(${job.id})">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1"><polygon points="5 3 19 12 5 21 5 3"/></svg>Video
+                            </button>`;
+                        }
+                    } else {
+                        actionButton = `<span class="text-muted tech-font fs-7">Processing...</span>`;
+                    }
+
+                    const typeColor = job.job_type === 'video' ? 'bg-purple' : 'bg-secondary';
+                    const typeStyle = job.job_type === 'video' ? 'background-color: #8b5cf6 !important;' : '';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="tech-font id-cell" style="padding-left: 1.5rem;">#${job.id}</td>
+                        <td class="tech-font fw-bold text-light">${job.product_code}</td>
+                        <td><span class="badge ${typeColor}" style="${typeStyle}">${job.job_type.toUpperCase()}</span></td>
+                        <td>
+                            <div class="status-badge ${statusClass}">
+                                <span class="status-dot"></span>
+                                ${job.status}
+                            </div>
+                        </td>
+                        <td class="tech-font text-muted fs-7">${timeString}</td>
+                        <td><div class="prompt-text tech-font" title="${job.prompt_text || ''}">${job.prompt_text || 'N/A'}</div></td>
+                        <td class="text-end" style="padding-right: 1.5rem;">${actionButton}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        fetchJobs();
+        setInterval(fetchJobs, 3000);
+    </script>
+</body>
+</html>
