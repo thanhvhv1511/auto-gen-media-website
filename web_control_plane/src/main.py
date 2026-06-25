@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import asc
 import os
 import shutil
 import json
@@ -92,8 +93,8 @@ def get_master_data(db: Session = Depends(database.get_db)):
     products = db.query(models.Product).all()
 
     # 1. Lấy Concepts
-    # 1. Lấy Concepts
-    concepts = db.query(models.Concept).all()
+    concepts = db.query(models.Concept).order_by(models.Concept.id).all()
+    
     concepts_data = [{
         "id": c.id,
         "name": c.name,

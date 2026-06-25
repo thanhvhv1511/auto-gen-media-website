@@ -645,3 +645,109 @@ async function submitNewConcept() {
         if (GLOBAL_DB.concepts.length > 0) selectAdminConcept(GLOBAL_DB.concepts[GLOBAL_DB.concepts.length - 1].id);
     } catch (error) { alert("Lỗi kết nối mạng!"); }
 }
+
+// Biến lưu trữ ô Textarea cuối cùng người dùng tương tác
+let lastFocusedEditor = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Tìm tất cả các ô soạn thảo có gắn class 'prompt-editor'
+    const editors = document.querySelectorAll('.prompt-editor');
+    
+    editors.forEach(editor => {
+        // Mỗi khi click hoặc tab vào ô nào, ghi nhớ ô đó lại
+        editor.addEventListener('focus', function() {
+            lastFocusedEditor = this;
+        });
+    });
+});
+
+/**
+ * Hàm chèn biến tại vị trí con trỏ thông minh
+ * @param {string} variableTag Mã biến (VD: {{SELECTED_LEG}})
+ */
+function insertVariable(variableTag) {
+    // Ưu tiên ô được focus cuối cùng. Nếu chưa click vào đâu, mặc định ném vào ô Image.
+    const txtArea = lastFocusedEditor || document.getElementById('conceptBasePromptImage');
+    
+    if (!txtArea) return;
+
+    // Lấy tọa độ con trỏ chuột hiện tại
+    const startPos = txtArea.selectionStart;
+    const endPos = txtArea.selectionEnd;
+    const textBefore = txtArea.value.substring(0, startPos);
+    const textAfter = txtArea.value.substring(endPos, txtArea.value.length);
+
+    // Chèn mã biến vào giữa
+    txtArea.value = textBefore + variableTag + textAfter;
+
+    // Cập nhật lại vị trí con trỏ ra ngay phía sau biến vừa chèn
+    const newCursorPos = startPos + variableTag.length;
+    txtArea.selectionStart = newCursorPos;
+    txtArea.selectionEnd = newCursorPos;
+    
+    // Focus lại vào ô để gõ tiếp
+    txtArea.focus();
+}
+
+// 1. Quản lý trạng thái bằng ID (Dạng chuỗi) thay vì lưu Object DOM trực tiếp
+// Giúp tránh việc giữ lại phần tử "chết" sau khi chuyển đổi Concept ở Sidebar
+window.lastActivePromptEditorId = 'conceptBasePromptImage'; 
+
+// 2. Theo dõi ID của ô textarea được nhấp chuột vào cuối cùng (Chạy toàn cục)
+document.addEventListener('focusin', function(e) {
+    if (e.target && e.target.classList.contains('prompt-editor')) {
+        window.lastActivePromptEditorId = e.target.id;
+        console.log("🎯 Hệ thống ghi nhớ ID ô soạn thảo active:", window.lastActivePromptEditorId);
+    }
+});
+
+// 3. Ủy quyền sự kiện Click toàn cục (Event Delegation) trực tiếp từ tầng document
+// Bất kể HTML bị xóa đi vẽ lại bao nhiêu lần, nút bấm vẫn hoạt động chính xác 100%
+document.addEventListener('click', function(e) {
+    // Tìm xem phần tử được click (hoặc thẻ cha của nó) có thuộc tính data-tag không
+    const button = e.target.closest('[data-tag]');
+    if (!button) return; // Nếu không phải nút chèn biến, bỏ qua không xử lý
+
+    e.preventDefault();
+
+    // Bản đồ ánh xạ giá trị chuỗi mẫu cần chèn
+    const tagValues = {
+        'BACKGROUND': 'Background: {{SELECTED_BACKGROUND}}',
+        'UPPER_BODY': '{{SELECTED_UPPER_BODY}}',
+        'LEG':        '{{SELECTED_LEG}}',
+        'HAND':       '{{SELECTED_HAND}}'
+    };
+
+    const targetTagType = button.getAttribute('data-tag');
+    const finalInsertText = tagValues[targetTagType];
+    
+    if (!finalInsertText) return;
+
+    // LUÔN LUÔN lấy phần tử LIVE (đang hiển thị thực tế trên màn hình) bằng ID
+    const targetId = window.lastActivePromptEditorId || 'conceptBasePromptImage';
+    const txtArea = document.getElementById(targetId);
+
+    if (!txtArea) {
+        console.warn("⚠️ Không tìm thấy ô textarea live với ID:", targetId);
+        return;
+    }
+
+    // Tiến hành bóc tách và chèn chữ vào vị trí con trỏ chuột
+    const startPos = txtArea.selectionStart || 0;
+    const endPos = txtArea.selectionEnd || 0;
+    
+    const originalValue = txtArea.value;
+    const textBefore = originalValue.substring(0, startPos);
+    const textAfter = originalValue.substring(endPos, originalValue.length);
+
+    txtArea.value = textBefore + finalInsertText + textAfter;
+
+    // Tính toán và trả lại dấu nháy chuột ngay sau từ khóa vừa được điền vào
+    const nextCursorIndex = startPos + finalInsertText.length;
+    
+    txtArea.focus();
+    txtArea.setSelectionRange(nextCursorIndex, nextCursorIndex);
+
+    // Phát tín hiệu thông báo nội dung thay đổi để đồng bộ trạng thái lưu của hệ thống
+    txtArea.dispatchEvent(new Event('input', { bubbles: true }));
+});
