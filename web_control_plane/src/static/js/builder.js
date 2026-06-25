@@ -86,7 +86,48 @@ function renderTimelineSlots() {
 
 function saveTimelineConfig() { updateLivePrompt(); builderModal.hide(); }
 
-document.getElementById('videoJobForm')?.addEventListener('submit', (e) => {
+document.getElementById('videoJobForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    alert("API Manual Video Job chưa được xây dựng. Xem console log!");
+
+    const selector = document.getElementById('vidSmartSelector');
+    const btn = e.target.querySelector('button[type="submit"]');
+    
+    if (!selector.value) {
+        alert("Vui lòng chọn nguồn dữ liệu!");
+        return;
+    }
+
+    // Hiệu ứng Loading
+    const originalBtnText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang đẩy...';
+
+    try {
+        const formData = new FormData();
+        formData.append('product_code', selector.value);
+        
+        // Gửi lệnh lên Backend
+        const response = await fetch('/jobs/video', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log("✅ Lệnh Video đã được tiếp nhận:", result);
+            alert("Đã đẩy lệnh vào hàng đợi thành công!");
+            
+            // Refresh lại bảng danh sách job (nếu bạn có hàm fetchJobs)
+            if (typeof fetchJobs === 'function') fetchJobs();
+        } else {
+            throw new Error(result.detail || "Có lỗi xảy ra");
+        }
+    } catch (err) {
+        console.error("❌ Lỗi gửi Job Video:", err);
+        alert("Lỗi: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnText;
+    }
 });

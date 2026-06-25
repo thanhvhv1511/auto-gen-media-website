@@ -1,0 +1,75 @@
+<div class="tab-pane fade show active" id="product-pane" role="tabpanel" tabindex="0">
+    <div class="row g-4">
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-header"><i class="bi bi-box-seam text-secondary me-2"></i> Quản Lý Sản Phẩm</div>
+                <div class="card-body">
+                    <form id="productForm">
+                        <div class="mb-4">
+                            <label class="form-label text-light fw-bold"><i class="bi bi-upc-scan text-warning me-1"></i> Mã Sản Phẩm</label>
+                            <input type="text" class="form-control tech-font text-muted" id="productCode" placeholder="VD: SP001" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-light fw-bold"><i class="bi bi-fonts text-info me-1"></i> Tên Sản Phẩm</label>
+                            <input type="text" class="form-control tech-font text-muted" id="productName" placeholder="VD: Áo Thun Polo Premium" required>
+                        </div>
+
+                        <div class="mb-5">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label text-light fw-bold m-0">
+                                    <i class="bi bi-star-fill text-success me-1"></i> Tính Năng (Feature)
+                                </label>
+                                <button type="button" class="btn btn-sm btn-link text-info p-0 text-decoration-none tech-font" id="toggleFeatureModeBtn" onclick="toggleFeatureInputMode()">
+                                    <i class="bi bi-plus-square"></i> Tạo tính năng mới
+                                </button>
+                            </div>
+
+                            <div id="featureSelectWrapper">
+                                <select class="form-select tech-font" id="featureId">
+                                    <option value="">-- Không có / Bỏ qua --</option>
+                                </select>
+                            </div>
+
+                            <div id="featureInputWrapper" class="d-none">
+                                <input type="text" class="form-control tech-font text-muted" id="featureName" placeholder="VD: Có Túi/Có Mũ">
+                            </div>
+                            
+                            <div class="form-text text-secondary small" style="font-size: 0.75rem;">Liên kết sản phẩm với một đặc tính thiết kế phục vụ luồng video.</div>
+                        </div>
+                                                
+                        <button type="submit" class="btn btn-success w-100 shadow-glow tech-font" id="submitProductBtn">
+                            <i class="bi bi-plus-circle-fill"></i> Thêm Mới Sản Phẩm
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div><i class="bi bi-table text-secondary me-2"></i> Danh Sách Sản Phẩm (Master Data)</div>
+                    <button class="btn btn-sm btn-outline-secondary tech-font" onclick="renderProductTable()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-borderless mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">ID</th>
+                                    <th>Mã SP</th>
+                                    <th>Tên Sản Phẩm</th>
+                                    <th>Tính Năng</th>
+                                    <th class="text-end pe-4">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

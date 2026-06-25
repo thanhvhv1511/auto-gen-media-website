@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, Req
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import os
 import shutil
 import json
@@ -45,6 +45,11 @@ class PoseUpdate(BaseModel):
     text: str
     weight: int
 
+class ProductCreate(BaseModel):
+    product_code: str
+    product_name: str
+    feature_id: Optional[int] = None
+    feature_name: Optional[str] = None
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -150,7 +155,8 @@ from sqlalchemy.orm import Session
 
 @app.post("/jobs/image")
 async def create_image_job(
-    product_id: int = Form(...),     # 1. ĐỔI: Nhận ID số nguyên từ JS gửi lên
+    product_id: int = Form(...),
+    loop_count: int = Form(1),
     concept_id: int = Form(...),   
     file: UploadFile = File(...),  
     db: Session = Depends(database.get_db)
@@ -196,7 +202,8 @@ async def create_image_job(
             job_type="image",
             concept_id=concept_id,
             status="pending",        # Để 'pending' cho con worker_image của ông nhảy vào bốc job nhé!
-            prompt_text=final_prompt
+            prompt_text=final_prompt,
+            loop_count=loop_count
         )
         db.add(new_job)
         db.flush() # Lấy ID của job vừa tạo
@@ -462,3 +469,126 @@ def create_pose(payload: dict, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "success"}
 
+
+@app.get("/api/scanned-sources")
+def get_scanned_video_sources(db: Session = Depends(database.get_db)):
+    """API quét thư mục storage và map với tên sản phẩm + feature trong DB"""
+    base_dir = os.path.join(STORAGE_PATH, "output_images")
+    sources = []
+    
+    if not os.path.exists(base_dir):
+        return {"sources": []}
+
+    # FIX: Dùng joinedload để load luôn bảng ProductFeature thông qua relationship 'feature'
+    products = db.query(models.Product).options(joinedload(models.Product.feature)).all()
+    
+    # Map để lưu cả name và object feature
+    product_map = {}
+    # Bổ sung vào API Python của bạn
+    for p in products:
+        feature_data = None
+        if p.feature:
+            feature_data = {
+                "id": p.feature.id,
+                "feature_name": p.feature.feature_name # BỔ SUNG DÒNG NÀY
+            }
+            
+        product_map[p.product_code.lower()] = {
+            "name": p.product_name,
+            "feature": feature_data
+        }
+
+    for folder_name in os.listdir(base_dir):
+        folder_path = os.path.join(base_dir, folder_name)
+        
+        if os.path.isdir(folder_path):
+            images = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
+            
+            if images:
+                images.sort()
+                
+                # Bắt dữ liệu từ product_map
+                p_data = product_map.get(folder_name.lower(), {"name": "Chưa có tên SP", "feature": None})
+                
+                sources.append({
+                    "folder": folder_name,
+                    "product_name": p_data["name"],
+                    "feature": p_data["feature"], # <--- Trả thêm feature về đây
+                    "image_count": len(images),
+                    "images": images
+                })
+                
+    sources = sorted(sources, key=lambda x: x["folder"])
+    return {"sources": sources}
+
+@app.post("/jobs/video")
+async def create_video_job(
+    product_code: str = Form(...),      # Lấy từ folder đã chọn
+    # Các tham số khác như: prompt_text, loop_count, etc.
+    db: Session = Depends(database.get_db)
+):
+    try:
+        # 1. Tìm sản phẩm dựa trên product_code
+        product = db.query(models.Product).filter(models.Product.product_code == product_code).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm!")
+
+        # 2. Tạo bản ghi Job cho Worker Video bốc
+        new_job = models.GenerationJob(
+            product_id=product.id,
+            job_type="video",
+            status="pending"
+            # Lưu thêm các config khác nếu cần
+        )
+        db.add(new_job)
+        db.commit()
+        
+        return {"message": "Đã đẩy lệnh video vào hàng đợi!", "job_id": new_job.id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# API: Tạo sản phẩm mới
+@app.post("/api/products")
+def create_product(req: ProductCreate, db: Session = Depends(database.get_db)):
+    safe_product_code = req.product_code.lower().strip()
+    
+    # Kiểm tra mã sản phẩm trùng lặp
+    existing_product = db.query(models.Product).filter(models.Product.product_code == safe_product_code).first()
+    if existing_product:
+        raise HTTPException(status_code=400, detail="Mã sản phẩm đã tồn tại trên hệ thống!")
+
+    resolved_feature_id = req.feature_id
+
+    # Nếu người dùng muốn tạo nhanh một tính năng mới (không dùng cái cũ có sẵn)
+    if req.feature_name and req.feature_name.strip():
+        clean_feature_name = req.feature_name.strip()
+        
+        # Kiểm tra xem tính năng này thực chất đã tồn tại trong DB chưa (tránh trùng lặp dữ liệu)
+        existing_feature = db.query(models.ProductFeature).filter(
+            models.ProductFeature.feature_name == clean_feature_name
+        ).first()
+        
+        if existing_feature:
+            resolved_feature_id = existing_feature.id
+        else:
+            # Tạo mới hoàn toàn một bản ghi ProductFeature
+            new_feature = models.ProductFeature(feature_name=clean_feature_name)
+            db.add(new_feature)
+            db.flush()  # Lấy tạm ID vừa sinh tự động mà chưa commit transaction
+            resolved_feature_id = new_feature.id
+
+    # Tiến hành tạo sản phẩm với ID tính năng đã giải quyết xong ở trên
+    new_product = models.Product(
+        product_code=safe_product_code,
+        product_name=req.product_name,
+        feature_id=resolved_feature_id if resolved_feature_id else None
+    )
+    db.add(new_product)
+    db.commit()
+    db.refresh(new_product)
+    
+    return {"message": "Thêm sản phẩm thành công", "product_id": new_product.id}
+
+@app.get("/ui/product", response_class=HTMLResponse)
+def get_product_ui(request: Request):
+    return templates.TemplateResponse("product.html", {"request": request})

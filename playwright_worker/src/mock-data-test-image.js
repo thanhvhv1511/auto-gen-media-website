@@ -142,7 +142,7 @@ async function processJob(job) {
             await flowActions.configureAndFillImagePrompt(page, promptText);
 
             // 3. Gửi lệnh tạo ảnh
-            // await flowActions.submitPrompt(page);
+            await flowActions.submitPrompt(page);
 
             // 4. Download & Delete
             const paddedLoopNumber = String(i).padStart(3, '0');
@@ -153,7 +153,7 @@ async function processJob(job) {
             };
 
             console.log(`⏳ Đang chờ ảnh render và tiến hành tải xuống...`);
-            // await flowActions.downloadAndDeleteImages(page, getFilePathCallback, 4, 180000, safeRefTileId);
+            await flowActions.downloadAndDeleteImages(page, getFilePathCallback, 4, 180000, safeRefTileId);
             
             console.log(`🎉 Hoàn tất trọn vẹn vòng lặp thứ ${i}!`);
             await page.waitForTimeout(2000); 

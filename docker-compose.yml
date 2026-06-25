@@ -46,6 +46,7 @@ services:
     volumes:
       - ./playwright_worker/src:/app/src
       - ./storage:/storage
+      - /tmp:/tmp
     depends_on:
       db:
         condition: service_healthy

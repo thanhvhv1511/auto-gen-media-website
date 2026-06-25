@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('product_id', document.getElementById('productId').value);
             formData.append('concept_id', document.getElementById('conceptId').value);
             formData.append('file', document.getElementById('imageFile').files[0]);
+            formData.append('loop_count', document.getElementById('loopCount').value);
 
             try {
                 const response = await fetch('/jobs/image', { method: 'POST', body: formData });

@@ -20,10 +20,16 @@
                         </div>
 
                         <div class="mb-5">
-                            <label class="form-label text-muted small fw-bold">TÀI NGUYÊN GỐC (INPUT)</label>
+                            <label class="form-label text-muted small fw-bold">Ảnh (INPUT)</label>
                             <input class="form-control text-muted" type="file" id="imageFile" accept="image/*" required>
                         </div>
-                        
+
+                        <div class="mb-4">
+                            <label class="form-label text-light fw-bold"><i class="bi bi-arrow-repeat text-info me-1"></i> LOOP COUNT</label>
+                            <input type="number" class="form-control tech-font text-muted" id="loopCount" min="1" max="40" value="10" required>
+                            <div class="form-text text-secondary small" style="font-size: 0.75rem;">Số lượng biến thể ảnh muốn tạo ra từ luồng này.</div>
+                        </div>
+                                                
                         <button type="submit" class="btn btn-primary w-100 shadow-glow tech-font" id="submitBtn">
                             <i class="bi bi-rocket-takeoff-fill"></i> Đẩy Lệnh Vào Hàng Đợi
                         </button>

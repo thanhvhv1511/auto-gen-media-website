@@ -84,7 +84,7 @@ async function configureAndFillImagePrompt(page, promptText) {
     await menuContainer.locator('button[role="tab"]:has-text("9:16")').first().click();
     await page.waitForTimeout(100);
 
-    console.log('👉 Chọn số lượng 1x...');
+    console.log('👉 Chọn số lượng x4...');
     await menuContainer.locator('button[role="tab"]:text-is("x4")').first().click();
     await page.waitForTimeout(100);
 
@@ -535,7 +535,7 @@ async function downloadAndDeleteImages(page, getFilePathCallback, expectedCount 
                     await page.locator('text="Tải xuống"').last().hover();
                     await page.waitForTimeout(500);
 
-                    const resolution2K = page.getByText('1K', { exact: true }).last();
+                    const resolution2K = page.getByText('2K', { exact: true }).last();
                     await resolution2K.waitFor({ state: 'visible', timeout: 5000 });
 
                     // Lấy đường dẫn file thông qua callback truyền từ file chính
