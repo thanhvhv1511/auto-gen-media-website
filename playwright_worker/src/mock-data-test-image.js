@@ -18,7 +18,7 @@ const client = new Client({
 const STORAGE_DIR = '/storage';
 const INPUT_DIR = path.join(STORAGE_DIR, 'input_images');
 const OUTPUT_IMG_DIR = path.join(STORAGE_DIR, 'output_images');
-const CHROME_WS_ENDPOINT = process.env.CHROME_WS_ENDPOINT || 'http://host.docker.internal:9522';
+const CHROME_WS_ENDPOINT = process.env.CHROME_WS_ENDPOINT || 'http://host.docker.internal:9521';
 
 // ==========================================
 // HÀM TIỆN ÍCH
@@ -52,12 +52,12 @@ async function processJob(job) {
     try {
         // --- GIẢI PHÁP HTTP LÕI BẮT TOKEN CHROME ---
         let endpoint = CHROME_WS_ENDPOINT;
-        let cdpPort = 9522; 
+        let cdpPort = 9521; 
         
         if (endpoint.startsWith('http')) {
             console.log(`🔍 Đang dùng HTTP Bypass để dò Token WebSocket của Chrome...`);
             const targetHost = endpoint.includes('host.docker.internal') ? 'host.docker.internal' : endpoint.split('://')[1].split(':')[0];
-            cdpPort = endpoint.split(':')[2] ? endpoint.split(':')[2].replace(/\//g, '') : 9522;
+            cdpPort = endpoint.split(':')[2] ? endpoint.split(':')[2].replace(/\//g, '') : 9521;
 
             const wsUrl = await new Promise((resolve, reject) => {
                 const req = http.request({

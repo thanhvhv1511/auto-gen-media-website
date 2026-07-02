@@ -6,12 +6,10 @@ const http = require('http');
 
 // Gọi các module hành động và prompt
 const flowActions = require('./actions/flowActions');
-// Nếu bạn tách hàm addUploadedTileToPrompt sang file devFuncs thì require ở đây. 
-// Dưới đây mình giả định các hàm này đã được gom chung vào flowActions cho gọn.
 const promptBuilder = require('./prompt/promptBuilder');
 
 // ==========================================
-// CẤU HÌNH DATABASE & ĐƯỜNG DẪN
+// CẤU HÌNH DATABASE, ĐƯỜNG DẪN & TRẠNG THÁI
 // ==========================================
 const client = new Client({
     connectionString: process.env.DATABASE_URL || 'postgresql://root:rootpassword@localhost:5432/autoscript_media'
@@ -20,7 +18,16 @@ const client = new Client({
 const STORAGE_DIR = '/storage';
 const INPUT_DIR = path.join(STORAGE_DIR, 'input_images');
 const OUTPUT_IMG_DIR = path.join(STORAGE_DIR, 'output_images');
-const CHROME_WS_ENDPOINT = process.env.CHROME_WS_ENDPOINT || 'http://host.docker.internal:9522';
+const CHROME_WS_ENDPOINT = process.env.CHROME_WS_ENDPOINT || 'http://host.docker.internal:9521';
+
+// Định nghĩa Mapping Trạng thái DB (Dành cho cột kiểu smallint)
+// Đổi các con số này nếu DB của bạn có quy ước khác
+const JOB_STATUS = {
+    PENDING: 0,
+    PROCESSING: 1,
+    SUCCESS: 2,
+    FAILED: 3
+};
 
 // ==========================================
 // HÀM TIỆN ÍCH
@@ -47,18 +54,19 @@ async function processJob(job) {
     console.log(`🚀 BẮT ĐẦU JOB ẢNH ID: ${job.id} | SP: ${job.product_code} | SỐ VÒNG: ${loopCount}`);
     console.log(`==========================================`);
     
-    await client.query("UPDATE generation_jobs SET status = 'processing', updated_at = NOW() WHERE id = $1", [job.id]);
+    // Đã chuyển 'processing' thành JOB_STATUS.PROCESSING
+    await client.query("UPDATE generation_jobs SET status = $1, updated_at = NOW() WHERE id = $2", [JOB_STATUS.PROCESSING, job.id]);
 
     let browser;
     try {
         // --- GIẢI PHÁP HTTP LÕI BẮT TOKEN CHROME ---
         let endpoint = CHROME_WS_ENDPOINT;
-        let cdpPort = 9522; 
+        let cdpPort = 9521; 
         
         if (endpoint.startsWith('http')) {
             console.log(`🔍 Đang dùng HTTP Bypass để dò Token WebSocket của Chrome...`);
             const targetHost = endpoint.includes('host.docker.internal') ? 'host.docker.internal' : endpoint.split('://')[1].split(':')[0];
-            cdpPort = endpoint.split(':')[2] ? endpoint.split(':')[2].replace(/\//g, '') : 9522;
+            cdpPort = endpoint.split(':')[2] ? endpoint.split(':')[2].replace(/\//g, '') : 9521;
 
             const wsUrl = await new Promise((resolve, reject) => {
                 const req = http.request({
@@ -103,7 +111,8 @@ async function processJob(job) {
         const inputImagePath = mediaRes.rows[0].file_path;
 
         // Tạo thư mục gom theo mã sản phẩm
-        const productImgDir = path.join(OUTPUT_IMG_DIR, job.product_code);
+        const conceptDirName = `concept-${job.concept_id}`;
+        const productImgDir = path.join(OUTPUT_IMG_DIR, job.product_code, conceptDirName);
         if (!fs.existsSync(productImgDir)) fs.mkdirSync(productImgDir, { recursive: true });
 
         // --- LẤY FEATURE ID CỦA SẢN PHẨM ---
@@ -134,7 +143,6 @@ async function processJob(job) {
             if (dataRandom.selectedUpperBody) console.log(`• Thân trên:   ${dataRandom.selectedUpperBody}`);
             
             // 2. Gắn ảnh vào câu lệnh & Điền Prompt
-            // Sử dụng hàm addUploadedTileToPrompt từ file devFuncs (hoặc flowActions tùy bạn import)
             const safeRefTileId = await flowActions.addUploadedTileToPrompt(page); 
             await flowActions.configureAndFillImagePrompt(page, promptText);
 
@@ -144,8 +152,7 @@ async function processJob(job) {
             // 4. Download & Delete
             const paddedLoopNumber = String(i).padStart(3, '0');
             const getFilePathCallback = (downloadIndex) => {
-                // Tên file: SP001_job12_loop001_sub1.jpg
-                const baseNameForThisLoop = `${job.product_code}_job${job.id}_concept${job.concept_id}_sub${downloadIndex}`;
+                const baseNameForThisLoop = `${job.product_code}_job${job.id}_concept-${job.concept_id}`;
                 return getUniqueFilePath(productImgDir, baseNameForThisLoop, '.jpg');
             };
 
@@ -160,13 +167,14 @@ async function processJob(job) {
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(3000); 
 
-        // Đánh dấu thành công
-        await client.query("UPDATE generation_jobs SET status = 'success', updated_at = NOW() WHERE id = $1", [job.id]);
+        // Đánh dấu thành công (chuyển 'success' thành JOB_STATUS.SUCCESS)
+        await client.query("UPDATE generation_jobs SET status = $1, updated_at = NOW() WHERE id = $2", [JOB_STATUS.SUCCESS, job.id]);
         console.log(`✅ [SUCCESS] Hoàn thành Job Ảnh ${job.id}`);
 
     } catch (error) {
         console.error(`❌ [ERROR] Job ${job.id}:`, error.message);
-        await client.query("UPDATE generation_jobs SET status = 'failed', error_log = $1, updated_at = NOW() WHERE id = $2", [error.message, job.id]);
+        // Đánh dấu thất bại (chuyển 'failed' thành JOB_STATUS.FAILED)
+        await client.query("UPDATE generation_jobs SET status = $1, error_log = $2, updated_at = NOW() WHERE id = $3", [JOB_STATUS.FAILED, error.message, job.id]);
     } finally {
         if (browser) {
             await browser.close().catch(() => {});
@@ -182,12 +190,12 @@ async function workerLoop() {
     console.log("👷 Image Worker đã kết nối Database. Đang chờ Job Sinh Ảnh mới...");
     while (true) {
         try {
-            // Thay thế câu SQL hiện tại của bạn thành:
+            // Chuyển 'pending' thành nội suy biến JOB_STATUS.PENDING
             const res = await client.query(`
                 SELECT j.id, j.product_id, j.job_type, j.prompt_text, j.concept_id, j.loop_count, p.product_code 
                 FROM generation_jobs j
                 JOIN products p ON j.product_id = p.id
-                WHERE j.status = 'pending' AND j.job_type = 'image'
+                WHERE j.status = ${JOB_STATUS.PENDING} AND j.job_type = 'image'
                 ORDER BY j.created_at ASC 
                 FOR UPDATE SKIP LOCKED LIMIT 1
             `);

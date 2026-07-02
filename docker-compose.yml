@@ -55,7 +55,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://root:rootpassword@db:5432/autoscript_media
       # Gọi ra Chrome đang mở trên máy Mac host thông qua host.docker.internal
-      - CHROME_WS_ENDPOINT=http://host.docker.internal:9522
+      - CHROME_WS_ENDPOINT=http://host.docker.internal:9521
 
 volumes:
   pgdata:

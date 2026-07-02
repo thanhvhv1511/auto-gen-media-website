@@ -1,7 +1,120 @@
-const config = require('./config');
+const { chromium } = require('playwright');
+const http = require('http');
+const fs = require('fs');
 const path = require('path');
 let referenceTileId = null;
-const DELAY_SHORT = 500;
+const DELAY_SHORT = 1000;
+const DELAY_MEDIUM = 3000;
+const DELAY_LONG = 5000;
+const TARGET_MODEL = "Nano Banana Pro";
+
+// ==========================================
+// 1. HÀM KẾT NỐI CHROME & BẮT TOKEN WS
+// ==========================================
+async function connectToChrome(defaultEndpoint) {
+    let endpoint = defaultEndpoint;
+    let cdpPort = 9521; 
+    
+    if (endpoint.startsWith('http')) {
+        console.log(`🔍 Đang dùng HTTP Bypass để dò Token WebSocket của Chrome...`);
+        const targetHost = endpoint.includes('host.docker.internal') ? 'host.docker.internal' : endpoint.split('://')[1].split(':')[0];
+        cdpPort = endpoint.split(':')[2] ? endpoint.split(':')[2].replace(/\//g, '') : 9521;
+
+        const wsUrl = await new Promise((resolve, reject) => {
+            const req = http.request({
+                hostname: targetHost,
+                port: cdpPort,
+                path: '/json/version',
+                method: 'GET',
+                headers: { 'Host': `localhost:${cdpPort}` } 
+            }, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    if (res.statusCode !== 200) return reject(new Error(`Chrome từ chối với mã lỗi: ${res.statusCode}`));
+                    try {
+                        resolve(JSON.parse(data).webSocketDebuggerUrl);
+                    } catch(e) {
+                        reject(new Error("Không thể parse dữ liệu từ Chrome"));
+                    }
+                });
+            });
+            req.on('error', reject);
+            req.end();
+        });
+
+        endpoint = wsUrl.replace(/localhost|127\.0\.0\.1/, targetHost);
+        console.log(`🎯 Bắt Token thành công! Endpoint thực tế: ${endpoint}`);
+    }
+
+    return await chromium.connectOverCDP(endpoint, {
+        headers: { 'Host': `localhost:${cdpPort}` }
+    });
+}
+
+// ==========================================
+// 2. HÀM QUÉT THƯ MỤC ẢNH ĐA CẤP
+// ==========================================
+function scanInputImages(productImgDir) {
+    let filesToProcess = [];
+    if (fs.existsSync(productImgDir)) {
+        const subDirs = fs.readdirSync(productImgDir);
+        for (const subDir of subDirs) {
+            const conceptDirPath = path.join(productImgDir, subDir);
+            if (fs.statSync(conceptDirPath).isDirectory()) {
+                const imgFiles = fs.readdirSync(conceptDirPath).filter(f => f.endsWith('.jpg') || f.endsWith('.png'));
+                for (const img of imgFiles) {
+                    filesToProcess.push({
+                        fileName: img,
+                        fullPath: path.join(conceptDirPath, img)
+                    });
+                }
+            }
+        }
+    }
+    return filesToProcess;
+}
+
+// ==========================================
+// 3. HÀM PHÂN GIẢI TÊN FILE (BÓC TÁCH MÃ SP, CONCEPT)
+// ==========================================
+function parseFilenameInfo(fileName, fallbackProductCode, fallbackConceptId) {
+    const regex = /^([a-zA-Z0-9]+)_job\d+_concept-(\d+)/;
+    const match = fileName.match(regex);
+    
+    return {
+        parsedProductCode: match ? match[1] : fallbackProductCode,
+        parsedConceptId: match ? match[2] : (fallbackConceptId || 'unknown')
+    };
+}
+
+// ==========================================
+// 4. HÀM DỌN DẸP THƯ MỤC TRỐNG
+// ==========================================
+function cleanupEmptyDirectories(productImgDir, productCode) {
+    if (!fs.existsSync(productImgDir)) return;
+
+    // Quét và xóa các thư mục con rỗng (concept-X)
+    const subDirs = fs.readdirSync(productImgDir);
+    for (const subDir of subDirs) {
+        const conceptDirPath = path.join(productImgDir, subDir);
+        if (fs.statSync(conceptDirPath).isDirectory()) {
+            if (fs.readdirSync(conceptDirPath).length === 0) {
+                fs.rmdirSync(conceptDirPath);
+                console.log(`🧹 [CLEANUP] Đã xóa thư mục con rỗng: ${subDir}`);
+            }
+        }
+    }
+    
+    // Xóa thư mục gốc của sản phẩm nếu trống
+    if (fs.readdirSync(productImgDir).length === 0) {
+        fs.rmdirSync(productImgDir); 
+        console.log(`🧹 [CLEANUP] Đã xóa toàn bộ thư mục rỗng của SP: ${productCode}`);
+    } else {
+        console.log(`⚠️ [CLEANUP] Thư mục ${productCode} vẫn còn chứa file/thư mục chưa xử lý hết.`);
+    }
+}
+
 /**
  * Kiểm tra trạng thái URL hiện tại và điều hướng vào workspace
  */
@@ -51,8 +164,8 @@ async function uploadInitialImage(page) {
     ]);
     
     await fileChooser.setFiles(config.TEST_IMAGE);
-    console.log(`   ⏳ Đợi ${config.DELAY_LONG / 1000}s để tệp tin ảnh load xong...`);
-    await page.waitForTimeout(config.DELAY_LONG);
+    console.log(`   ⏳ Đợi ${DELAY_LONG / 1000}s để tệp tin ảnh load xong...`);
+    await page.waitForTimeout(DELAY_LONG);
     await page.keyboard.press('Escape');
 }
 
@@ -65,7 +178,7 @@ async function configureAndFillImagePrompt(page, promptText) {
     await chatBox.waitFor({ state: 'visible', timeout: 5000 });
     await chatBox.click();
     await chatBox.fill(promptText); 
-    await page.waitForTimeout(config.DELAY_MEDIUM);
+    await page.waitForTimeout(DELAY_MEDIUM);
 
     console.log('👉 Đang tìm và click nút cấu hình mô hình...');
     const configBtn = page.locator('button[aria-haspopup="menu"]').filter({ hasText: /Banana|Nano|Video/i }).first();
@@ -84,18 +197,18 @@ async function configureAndFillImagePrompt(page, promptText) {
     await menuContainer.locator('button[role="tab"]:has-text("9:16")').first().click();
     await page.waitForTimeout(100);
 
-    console.log('👉 Chọn số lượng x4...');
-    await menuContainer.locator('button[role="tab"]:text-is("x4")').first().click();
+    console.log('👉 Chọn số lượng 1x...');
+    await menuContainer.locator('button[role="tab"]:text-is("1x")').first().click();
     await page.waitForTimeout(100);
 
-    console.log(`👉 Kiểm tra và chọn mô hình: ${config.TARGET_MODEL}...`);
+    console.log(`👉 Kiểm tra và chọn mô hình: ${TARGET_MODEL}...`);
     const modelDropdown = menuContainer.locator('button[aria-haspopup="menu"]').first();
     if (await modelDropdown.isVisible()) {
         const currentModelText = await modelDropdown.innerText();
-        if (!currentModelText.includes(config.TARGET_MODEL)) {
+        if (!currentModelText.includes(TARGET_MODEL)) {
             await modelDropdown.click();
             await page.waitForTimeout(100);
-            await page.locator('button, [role="menuitem"], [role="option"]').filter({ hasText: config.TARGET_MODEL }).last().click();
+            await page.locator('button, [role="menuitem"], [role="option"]').filter({ hasText: TARGET_MODEL }).last().click();
         }
     }
     await page.waitForTimeout(100);
@@ -120,14 +233,14 @@ async function addLatestTileToPrompt(page) {
     const imgPrompt = tileBoxPrompt.locator('img[alt="Hình ảnh được tạo"]');
     
     await imgPrompt.waitFor({ state: 'visible', timeout: 120000 });
-    await page.waitForTimeout(config.DELAY_SHORT); 
+    await page.waitForTimeout(DELAY_SHORT); 
 
     await tileBoxPrompt.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     await tileBoxPrompt.hover();
     await page.waitForTimeout(500);
     await imgPrompt.hover({ force: true });
-    await page.waitForTimeout(config.DELAY_SHORT); 
+    await page.waitForTimeout(DELAY_SHORT); 
 
     console.log('   Đang định vị nút 3 chấm...');
     const visibleToolbar = page.locator('div[role="toolbar"]').filter({ state: 'visible' }).first();
@@ -135,13 +248,13 @@ async function addLatestTileToPrompt(page) {
     
     await threeDotsBtn.waitFor({ state: 'visible', timeout: 10000 });
     await threeDotsBtn.hover({ force: true });
-    await page.waitForTimeout(config.DELAY_SHORT); 
+    await page.waitForTimeout(DELAY_SHORT); 
     await threeDotsBtn.click({ force: true });
-    await page.waitForTimeout(config.DELAY_SHORT); 
+    await page.waitForTimeout(DELAY_SHORT); 
 
     console.log('   Kích hoạt: "Thêm vào câu lệnh"...');
     await page.locator('text="Thêm vào câu lệnh"').last().click({ force: true });
-    await page.waitForTimeout(config.DELAY_SHORT);
+    await page.waitForTimeout(DELAY_SHORT);
 }
 
 /**
@@ -152,7 +265,7 @@ async function submitPrompt(page) {
     const sendBtn = page.locator('button:has(i:text-is("arrow_forward"))').first();
     await sendBtn.waitFor({ state: 'visible', timeout: 5000 });
     await sendBtn.click();
-    await page.waitForTimeout(config.DELAY_LONG);
+    await page.waitForTimeout(DELAY_LONG);
 }
 
 /**
@@ -164,7 +277,7 @@ async function configureAndFillVideoPrompt(page, promptText) {
     await chatBox.waitFor({ state: 'visible', timeout: 5000 });
     await chatBox.click();
     await chatBox.fill(promptText); 
-    await page.waitForTimeout(config.DELAY_SHORT);
+    await page.waitForTimeout(DELAY_SHORT);
 
     console.log('👉 Đang tìm và mở menu cấu hình...');
     const configBtn = page.locator('button[aria-haspopup="menu"]').filter({ hasText: /Banana|Nano|Video/i }).first();
@@ -232,7 +345,7 @@ async function downloadLatestVideo(page, initialVideoCount, targetPath, maxRetri
     } catch (error) {
         throw new Error(`Quá thời gian 5 phút nhưng không thấy video mới xuất hiện: ${error.message}`);
     }
-    await page.waitForTimeout(config.DELAY_MEDIUM);
+    await page.waitForTimeout(DELAY_MEDIUM);
     // Bước 8.2: Vòng lặp thử lại cho công đoạn click tương tác và tải file xuống
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -242,7 +355,7 @@ async function downloadLatestVideo(page, initialVideoCount, targetPath, maxRetri
             
             // Ép phần tử hiển thị để trình duyệt kích hoạt render
             await tileBoxVideo.scrollIntoViewIfNeeded();
-            await page.waitForTimeout(config.DELAY_SHORT);
+            await page.waitForTimeout(DELAY_SHORT);
             await tileBoxVideo.hover({ force: true });
 
             // Tìm nút 3 chấm
@@ -251,13 +364,13 @@ async function downloadLatestVideo(page, initialVideoCount, targetPath, maxRetri
             
             await threeDotsBtnVideo.waitFor({ state: 'visible', timeout: 10000 });
             await threeDotsBtnVideo.hover({ force: true });
-            await page.waitForTimeout(config.DELAY_SHORT); 
+            await page.waitForTimeout(DELAY_SHORT); 
             await threeDotsBtnVideo.click({ force: true });
-            await page.waitForTimeout(config.DELAY_SHORT);
+            await page.waitForTimeout(DELAY_SHORT);
 
             console.log('   👉 Mở rộng menu con "Tải xuống"...');
             await page.locator('text="Tải xuống"').last().hover();
-            await page.waitForTimeout(config.DELAY_SHORT);
+            await page.waitForTimeout(DELAY_SHORT);
 
             console.log(`   👉 Thực hiện lệnh kích hoạt tải phiên bản 1080p...`);
             const resolution1080 = page.getByText(/1080/i).last();
@@ -272,7 +385,27 @@ async function downloadLatestVideo(page, initialVideoCount, targetPath, maxRetri
             // Lưu file thành công
             await download.saveAs(targetPath);
             console.log(`   ✅ Tải xuống thành công ở lần thử thứ ${attempt}!`);
-            return; // Thoát khỏi hàm ngay lập tức khi tải thành công
+            
+            // --- BƯỚC 8.3: DỌN DẸP WORKSPACE (CHUYỂN VÀO THÙNG RÁC) ---
+            console.log(`   👉 Bắt đầu dọn dẹp: Chuyển video vào thùng rác...`);
+            
+            // Hover lại vào video để đảm bảo thanh công cụ không bị ẩn đi mất
+            await tileBoxVideo.hover({ force: true });
+            await page.waitForTimeout(DELAY_SHORT);
+            
+            // Click mở lại menu 3 chấm
+            await threeDotsBtnVideo.click({ force: true });
+            await page.waitForTimeout(DELAY_SHORT);
+
+            // Tìm và click mục "Chuyển vào thùng rác"
+            const trashMenu = page.getByText(/chuyển vào thùng rác/i).last();
+            await trashMenu.waitFor({ state: 'visible', timeout: 5000 });
+            await trashMenu.click({ force: true });
+            await page.waitForTimeout(DELAY_SHORT); // Chờ một chút để UI thực hiện hiệu ứng xóa
+            
+            console.log(`   🗑️ Đã xóa video khỏi workspace thành công!`);
+
+            return; // Thoát khỏi hàm ngay lập tức khi mọi thứ hoàn tất
             
         } catch (error) {
             console.error(`   ⚠️ Lần thử ${attempt} thất bại với lỗi: ${error.message}`);
@@ -280,7 +413,7 @@ async function downloadLatestVideo(page, initialVideoCount, targetPath, maxRetri
             // ĐỘNG TÁC QUAN TRỌNG: Nhấn Escape để đóng các menu đang bị treo/mở dở
             // Giúp giao diện sạch sẽ trước khi bước vào lần thử lại (attempt) tiếp theo
             await page.keyboard.press('Escape');
-            await page.waitForTimeout(config.DELAY_MEDIUM); // Chờ 2s để giao diện ổn định lại
+            await page.waitForTimeout(DELAY_MEDIUM); // Chờ 2s để giao diện ổn định lại
 
             // Nếu đã chạm mốc giới hạn 3 lần thử mà vẫn lỗi thì mới ném lỗi ra ngoài để vòng lặp lớn (index.js) xử lý
             if (attempt === maxRetries) {
@@ -314,148 +447,8 @@ async function uploadInitialMultipleImage(page, targetImagePath) {
     // TRUYỀN BIẾN MỚI VÀO ĐÂY
     await fileChooser.setFiles(targetImagePath);
     console.log(`   ⏳ Đợi tệp tin ảnh load xong...`);
-    await page.waitForTimeout(config.DELAY_LONG);
+    await page.waitForTimeout(DELAY_LONG);
     await page.keyboard.press('Escape');
-}
-
-async function downloadAndDeleteImages(page, getFilePathCallback, expectedCount = 4, maxTimeout = 180000, ignoreTileId = null) {
-    console.log(`👉 Đang giám sát khung kết quả, sẵn sàng tải và dọn dẹp ${expectedCount} ảnh...`);
-    
-    // Tăng vùng quét lên +1 vì có thể quét trúng ảnh gốc (bị skip)
-    const scanLimit = ignoreTileId ? expectedCount + 1 : expectedCount;
-
-    const startTime = Date.now();
-    let downloadedCount = 0; 
-
-    // Vòng lặp radar quét liên tục
-    while (Date.now() - startTime < maxTimeout) {
-        // Đủ KPI thì thoát
-        if (downloadedCount >= expectedCount) {
-            console.log(`✅ Đã tải và dọn dẹp trọn vẹn ${expectedCount} khung ảnh!`);
-            return true; 
-        }
-
-        // Quét các ô đầu tiên trên cùng
-        for (let j = 0; j < scanLimit; j++) {
-            if (downloadedCount >= expectedCount) break;
-
-            // Quét tìm div có data-tile-id
-            const currentTile = page.locator('div[data-tile-id]').nth(j);
-            if (await currentTile.count() === 0) continue;
-
-            // Lấy ID của khung hiện tại
-            const tileId = await currentTile.getAttribute('data-tile-id');
-
-            // 🛡️ BƯỚC KIỂM TRA QUAN TRỌNG: Nếu trùng ID ảnh mẫu thì bỏ qua ngay lập tức
-            if (ignoreTileId && tileId === ignoreTileId) {
-                continue;
-            }
-
-            const imgElement = currentTile.locator('img[alt="Hình ảnh được tạo"]');
-            
-            // Nếu ảnh đã render và hiển thị
-            if (await imgElement.count() > 0 && await imgElement.isVisible()) {
-                console.log(`\n⏳ Ảnh ở Khung (ID: ${tileId}) đã nặn xong! Tiến hành tải...`);
-                
-                // 🎯 Tạo locator cố định theo ID, bất chấp DOM bị xô lệch
-                const exactTile = page.locator(`div[data-tile-id="${tileId}"]`).first();
-                const exactImg = exactTile.locator('img[alt="Hình ảnh được tạo"]').first();
-
-                try {
-                    // Giải phóng không gian, đóng các menu dropdown còn kẹt
-                    await page.keyboard.press('Escape');
-                    await page.keyboard.press('Escape');
-                    await page.waitForTimeout(500); 
-                } catch (e) {}
-
-                try {
-                    // --- HÀNH ĐỘNG 1: TẢI XUỐNG ---
-                    await exactTile.scrollIntoViewIfNeeded();
-                    await page.waitForTimeout(500);
-                    await exactTile.hover();
-                    await page.waitForTimeout(500);
-                    await exactImg.hover({ force: true });
-                    await page.waitForTimeout(500);
-
-                    const visibleToolbar = page.locator('div[role="toolbar"]').filter({ state: 'visible' }).first();
-                    const threeDotsBtn = visibleToolbar.locator('button[id^="radix-"]').filter({ has: page.locator('i:text-is("more_vert")') }).first();
-                    
-                    await threeDotsBtn.waitFor({ state: 'visible', timeout: 5000 });
-                    await threeDotsBtn.click({ force: true });
-                    await page.waitForTimeout(500);
-
-                    await page.locator('text="Tải xuống"').last().hover();
-                    await page.waitForTimeout(500);
-
-                    const resolution2K = page.getByText('1K', { exact: true }).last();
-                    await resolution2K.waitFor({ state: 'visible', timeout: 5000 });
-
-                    // Lấy đường dẫn file thông qua callback truyền từ file chính
-                    const finalFilePath = getFilePathCallback(downloadedCount);
-
-                    const [download] = await Promise.all([
-                        page.waitForEvent('download', { timeout: 30000 }), 
-                        resolution2K.click()           
-                    ]);
-
-                    await download.saveAs(finalFilePath);
-                    console.log(`   ✅ Đã tải thành công -> 📁 ${finalFilePath}`);
-                    
-                    downloadedCount++;
-
-                    // Đóng Toast thông báo nếu có
-                    try {
-                        const toastCloseBtn = page.locator('li[data-sonner-toast] button:has-text("Đóng")').first();
-                        await toastCloseBtn.waitFor({ state: 'visible', timeout: 3000 });
-                        await toastCloseBtn.click();
-                        await page.waitForTimeout(500);
-                    } catch (e) {}
-
-                    // --- HÀNH ĐỘNG 2: XÓA ẢNH ĐỂ DỌN CHỖ ---
-                    console.log(`   🗑️ Đang tiến hành xóa ảnh...`);
-                    // Hover lại vào ĐÚNG ID ảnh vừa tải
-                    await exactImg.hover({ force: true });
-                    await page.waitForTimeout(500);
-                    
-                    // Quét lại Toolbar mới do cái cũ đã bị đóng
-                    const newVisibleToolbar = page.locator('div[role="toolbar"]').filter({ state: 'visible' }).first();
-                    const newThreeDotsBtn = newVisibleToolbar.locator('button[id^="radix-"]').filter({ has: page.locator('i:text-is("more_vert")') }).first();
-                    
-                    await newThreeDotsBtn.waitFor({ state: 'visible', timeout: 5000 });
-                    await newThreeDotsBtn.click({ force: true });
-                    await page.waitForTimeout(500);
-
-                    const deleteBtn = page.locator('text="Xoá"').or(page.locator('text="Chuyển vào thùng rác"')).last();
-                    await deleteBtn.waitFor({ state: 'visible', timeout: 5000 });
-                    await deleteBtn.click({ force: true });
-                    console.log(`   ✅ Đã phi tang ảnh vào thùng rác!`);
-                    
-                    // Chờ DOM cập nhật và ảnh dưới bị đẩy lên
-                    await page.waitForTimeout(1000); 
-
-                    // Break vòng lặp FOR để radar quay lại quét từ Khung đầu tiên
-                    break; 
-
-                } catch (error) {
-                    console.error(`   ⚠️ Tương tác tải/xóa bị lỗi: ${error.message}`);
-                    console.log('   -> Sẽ thử lại ở vòng quét tiếp theo.');
-                    await page.keyboard.press('Escape');
-                    await page.waitForTimeout(1000);
-                }
-            }
-        }
-
-        // Nghỉ ngơi giữa các lần quét radar
-        await page.waitForTimeout(1500);
-    }
-
-    // Nếu hết giờ mà chưa tải đủ KPI
-    if (downloadedCount < expectedCount) {
-        console.log('\n⏰ ĐÃ HẾT TIMEOUT!');
-        console.log(`Chỉ dọn dẹp được ${downloadedCount}/${expectedCount} ảnh. Chuyển sang tiến trình khác...`);
-        await page.keyboard.press('Escape'); 
-        return false;
-    }
 }
 
 /**
@@ -626,7 +619,7 @@ async function addUploadedTileToPrompt(page) {
         // Giải phóng không gian, đóng các menu dropdown còn kẹt
         await page.keyboard.press('Escape');
         await page.keyboard.press('Escape');
-        await page.waitForTimeout(500); 
+        await page.waitForTimeout(1500); 
     } catch (e) {}
 
     const imgPrompt = tileBoxPrompt.locator('img[alt="Hình ảnh được tạo"]');
@@ -676,6 +669,51 @@ async function addUploadedTileToPrompt(page) {
     return referenceTileId; 
 }
 
+async function deleteLatestTile(page) {
+    try {
+        // Giải phóng không gian, đóng các menu dropdown còn kẹt
+        await page.keyboard.press('Escape');
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500); 
+    } catch (e) {}
+
+    console.log('👉 Đang giám sát ô phần tử mới nhất để Xóa (Chuyển vào thùng rác)...');
+    const tileBoxPrompt = page.locator('div[data-testid="virtuoso-item-list"] > div[data-item-index="0"] div[data-tile-id]').first();
+    const imgPrompt = tileBoxPrompt.locator('img[alt="Hình ảnh được tạo"]');
+    
+    await imgPrompt.waitFor({ state: 'visible', timeout: 120000 });
+    await page.waitForTimeout(DELAY_SHORT); 
+
+    // Ép hiển thị và focus vào phần tử
+    await tileBoxPrompt.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await tileBoxPrompt.hover();
+    await page.waitForTimeout(500);
+    await imgPrompt.hover({ force: true });
+    await page.waitForTimeout(DELAY_SHORT); 
+
+    console.log('   Đang định vị nút 3 chấm...');
+    const visibleToolbar = page.locator('div[role="toolbar"]').filter({ state: 'visible' }).first();
+    const threeDotsBtn = visibleToolbar.locator('button[id^="radix-"]').filter({ has: page.locator('i:text-is("more_vert")') }).first();
+    
+    await threeDotsBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await threeDotsBtn.hover({ force: true });
+    await page.waitForTimeout(DELAY_SHORT); 
+    await threeDotsBtn.click({ force: true });
+    await page.waitForTimeout(DELAY_SHORT); 
+
+    console.log('   Kích hoạt: "Chuyển vào thùng rác"...');
+    // Dùng Regex để bao quát cả 2 trường hợp nền tảng đổi tên nút
+    const trashMenu = page.getByText(/chuyển vào thùng rác|xóa/i).last();
+    
+    await trashMenu.waitFor({ state: 'visible', timeout: 5000 });
+    await trashMenu.click({ force: true });
+    
+    // Đợi nhỉnh hơn một chút (DELAY_MEDIUM) để UI hoàn tất animation gỡ thẻ DOM
+    await page.waitForTimeout(DELAY_MEDIUM || 2000); 
+    console.log('   🗑️ Đã xóa phần tử mới nhất khỏi workspace thành công!');
+}
+
 
 module.exports = {
     handleProjectNavigation,
@@ -687,5 +725,10 @@ module.exports = {
     downloadLatestVideo,
     uploadInitialMultipleImage,
     downloadAndDeleteImages,
-    addUploadedTileToPrompt
+    addUploadedTileToPrompt,
+    connectToChrome,
+    scanInputImages,
+    parseFilenameInfo,
+    cleanupEmptyDirectories,
+    deleteLatestTile
 };

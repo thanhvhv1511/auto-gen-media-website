@@ -10,13 +10,28 @@
         </a>
     </li>
     <li class="nav-item" role="presentation">
-        <a class="nav-link tech-font btn-lg px-4 {% if request.url.path == '/ui/admin' %}active{% endif %}" href="/ui/admin">
+        <a class="nav-link tech-font btn-lg px-4 {% if request.url.path == '/ui/prompt' %}active{% endif %}" href="/ui/prompt">
             <i class="bi bi-gear-fill me-2"></i> QUẢN TRỊ PROMPT
         </a>
     </li>
     <li class="nav-item" role="presentation">
         <a class="nav-link tech-font btn-lg px-4 {% if request.url.path == '/ui/product' %}active{% endif %}" href="/ui/product">
             <i class="bi bi-boxes me-2"></i> QUẢN TRỊ SẢN PHẨM
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link tech-font btn-lg px-4 {% if request.url.path == '/ui/backgrounds' %}active{% endif %}" href="/ui/backgrounds">
+            <i class="bi bi-boxes me-2"></i> BACKGROUND
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link tech-font btn-lg px-4 {% if request.url.path == '/ui/video-segments' %}active{% endif %}" href="/ui/video-segments">
+            <i class="bi bi-film"></i> Phân cảnh
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link tech-font btn-lg px-4 {% if request.url.path == '/ui/poses' %}active{% endif %}" href="/ui/poses">
+            <i class="bi bi-film"></i> Tư thế ảnh
         </a>
     </li>
 </ul>

@@ -1,158 +1,87 @@
-const { chromium } = require('playwright');
 const { Client } = require('pg');
-const fs = require('fs');
-const path = require('path');
-const http = require('http'); // Đã thêm module http lõi
-const flowActions = require('./actions/flowActions');
+// Import module chứa logic (đảm bảo file kia tên là promptBuilder.js hoặc promptGenerator.js)
+const promptBuilder = require('./prompt/promptBuilder'); 
 
+// =========================================================================
+// CẤU HÌNH DATABASE (Sử dụng Connection String)
+// =========================================================================
 const client = new Client({
-    connectionString: process.env.DATABASE_URL || 'postgresql://root:rootpassword@db:5432/autoscript_media'
+    connectionString: process.env.DATABASE_URL || 'postgresql://root:rootpassword@localhost:5432/autoscript_media'
 });
 
-const STORAGE_DIR = '/storage';
-const INPUT_DIR = path.join(STORAGE_DIR, 'input_images');
-const OUTPUT_IMG_DIR = path.join(STORAGE_DIR, 'output_images');
-const OUTPUT_VID_DIR = path.join(STORAGE_DIR, 'output_videos');
+async function runDemo() {
+    console.log('🚀 Khởi động Demo Prompt Builder...\n');
 
-const CHROME_WS_ENDPOINT = process.env.CHROME_WS_ENDPOINT || 'http://host.docker.internal:9522';
-
-async function processJob(job) {
-    console.log(`\n==========================================`);
-    console.log(`🚀 BẮT ĐẦU JOB ID: ${job.id} | TYPE: ${job.job_type.toUpperCase()} | SP: ${job.product_code}`);
-    console.log(`==========================================`);
-    
-    await client.query("UPDATE generation_jobs SET status = 'processing', updated_at = NOW() WHERE id = $1", [job.id]);
-
-    let browser;
     try {
-        // --- GIẢI PHÁP ĐÓNG ĐINH: DÙNG HTTP LÕI ĐỂ BẮT TOKEN UUID TRÁNH LỖI 404 ---
-        let endpoint = CHROME_WS_ENDPOINT;
-        let cdpPort = 9522; // Khai báo port mặc định
-        
-        if (endpoint.startsWith('http')) {
-            console.log(`🔍 Đang dùng HTTP Bypass để dò Token WebSocket của Chrome...`);
-            const targetHost = endpoint.includes('host.docker.internal') ? 'host.docker.internal' : endpoint.split('://')[1].split(':')[0];
-            cdpPort = endpoint.split(':')[2] ? endpoint.split(':')[2].replace(/\//g, '') : 9522;
+        // 1. Kết nối DB
+        await client.connect();
+        console.log('✅ Đã kết nối Database thành công.\n');
 
-            // Sử dụng module http lõi để ép buộc thay đổi Header, vượt mặt hệ thống bảo mật
-            const wsUrl = await new Promise((resolve, reject) => {
-                const req = http.request({
-                    hostname: targetHost,
-                    port: cdpPort,
-                    path: '/json/version',
-                    method: 'GET',
-                    // BƠM THÊM PORT VÀO ĐÂY ĐỂ CHROME KHÔNG TRẢ VỀ URL BỊ THIẾU PORT
-                    headers: { 'Host': `localhost:${cdpPort}` } 
-                }, (res) => {
-                    let data = '';
-                    res.on('data', chunk => data += chunk);
-                    res.on('end', () => {
-                        if (res.statusCode !== 200) return reject(new Error(`Chrome từ chối với mã lỗi: ${res.statusCode}`));
-                        try {
-                            resolve(JSON.parse(data).webSocketDebuggerUrl);
-                        } catch(e) {
-                            reject(new Error("Không thể parse dữ liệu từ Chrome"));
-                        }
-                    });
-                });
-                req.on('error', reject);
-                req.end();
-            });
+        // 2. Giả lập dữ liệu đầu vào (Input)
+        // Giả sử job.concept_id = 1 và sản phẩm có các tính năng id là [1]
+        const mockConceptId = 1; 
+        const mockFeatureIds = [1]; 
 
-            // Thay localhost bằng tên miền của Docker
-            endpoint = wsUrl.replace(/localhost|127\.0\.0\.1/, targetHost);
-            console.log(`🎯 Bắt Token thành công! Endpoint thực tế: ${endpoint}`);
-        }
+        console.log('🎲 Đang tạo mới kịch bản Prompt...');
+        console.log(`   - Concept ID: ${mockConceptId}`);
+        console.log(`   - Feature IDs: ${JSON.stringify(mockFeatureIds)}\n`);
 
-        // Kết nối Playwright với endpoint đầy đủ Token và Port
-        browser = await chromium.connectOverCDP(endpoint, {
-            headers: {
-                'Host': `localhost:${cdpPort}`
+        // 3. Gọi hàm sinh dữ liệu từ DB
+        const dataRandom = await promptBuilder.generateFromDB(client, mockConceptId, mockFeatureIds);
+
+        // 4. Lắp ráp văn bản Prompt cho IMAGE và VIDEO
+        const imagePromptText = promptBuilder.buildPromptText(dataRandom.imageTemplateText, dataRandom, 'image');
+        const videoPromptText = promptBuilder.buildPromptText(dataRandom.videoTemplateText, dataRandom, 'video');
+
+        // =========================================================================
+        // IN KẾT QUẢ RA CONSOLE
+        // =========================================================================
+        console.log('===================================================');
+        console.log('🎨 KẾT QUẢ GENERATE (DỮ LIỆU THÔ)');
+        console.log('===================================================');
+        console.log(`• Concept:     [${dataRandom.conceptName}]`);
+        console.log(`• Background:  ${dataRandom.selectedBgName || 'Không có background'}`);
+
+        // [MỚI] In toàn bộ các biến thuộc tính động đã bốc được
+        console.log('\n🧩 CÁC THUỘC TÍNH ĐỘNG (IMAGE VARIABLES):');
+        if (dataRandom.imageVariables && Object.keys(dataRandom.imageVariables).length > 0) {
+            let hasProps = false;
+            for (const [tag, value] of Object.entries(dataRandom.imageVariables)) {
+                if (value) { // Chỉ in ra những tag có giá trị, bỏ qua các tag rỗng
+                    console.log(`  • ${tag.padEnd(25, ' ')}: ${value}`);
+                    hasProps = true;
+                }
             }
-        });
-        
-        const context = browser.contexts()[0];
-        let page = context.pages().find(p => p.url().toLowerCase().includes('labs.google')) || context.pages()[0] || await context.newPage();
-
-        // 1. Vào trang dự án
-        page = await flowActions.handleProjectNavigation(page);
-
-        // --- NHÁNH 1: XỬ LÝ SINH ẢNH ---
-        if (job.job_type === 'image') {
-            const mediaRes = await client.query("SELECT file_path FROM media_assets WHERE job_id = $1 AND media_type = 'image_input' LIMIT 1", [job.id]);
-            if (mediaRes.rows.length === 0) throw new Error("Không tìm thấy ảnh gốc đầu vào.");
-            
-            await flowActions.uploadInitialMultipleImage(page, mediaRes.rows[0].file_path);
-            await flowActions.configureAndFillImagePrompt(page, job.prompt_text);
-            await flowActions.submitPrompt(page);
-            
-            const downloadedFiles = await flowActions.downloadLatestImages(page, job.product_code, job.id, OUTPUT_IMG_DIR);
-            
-            for (const filename of downloadedFiles) {
-                const finalPath = path.join(OUTPUT_IMG_DIR, filename);
-                await client.query("INSERT INTO media_assets (product_code, media_type, file_path, job_id) VALUES ($1, $2, $3, $4)", 
-                    [job.product_code, 'image_output', finalPath, job.id]);
-            }
-        } 
-        // --- NHÁNH 2: XỬ LÝ SINH VIDEO ---
-        else if (job.job_type === 'video') {
-            const initialVideoCount = await page.evaluate(() => document.querySelectorAll('video').length);
-            
-            await flowActions.addLatestTileToPrompt(page);
-            await flowActions.configureAndFillVideoPrompt(page, job.prompt_text);
-            await flowActions.submitPrompt(page);
-            
-            const productVidDir = path.join(OUTPUT_VID_DIR, job.product_code);
-            if (!fs.existsSync(productVidDir)) fs.mkdirSync(productVidDir, { recursive: true });
-            
-            const targetVidPath = path.join(productVidDir, `${job.product_code}_${job.id}_01.mp4`);
-            await flowActions.downloadLatestVideo(page, initialVideoCount, targetVidPath, 3);
-            
-            await client.query("INSERT INTO media_assets (product_code, media_type, file_path, job_id) VALUES ($1, $2, $3, $4)", 
-                [job.product_code, 'video', targetVidPath, job.id]);
+            if (!hasProps) console.log('  (Không có thuộc tính nào được chọn)');
+        } else {
+            console.log('  (Không có dữ liệu imageVariables)');
         }
+        
+        console.log('\n🎬 PHÂN CẢNH VIDEO CHỌN LỌC:');
+        console.log(`  • Slot 1:      ${dataRandom.segment_1_name || 'Trống'}`);
+        console.log(`  • Slot 2:      ${dataRandom.segment_2_name || 'Trống'}`);
+        console.log(`  • Slot 3:      ${dataRandom.segment_3_name || 'Trống'}`);
+        console.log(`  • Slot 4:      ${dataRandom.segment_4_name || 'Trống'}`);
 
-        console.log('🔄 Đang F5 dọn dẹp UI để chuẩn bị cho Job tiếp theo...');
-        await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(3000); 
+        console.log('\n===================================================');
+        console.log('🖼️  FINAL PROMPT (IMAGE)');
+        console.log('===================================================');
+        console.log(imagePromptText || '❌ Không có template hình ảnh');
 
-        await client.query("UPDATE generation_jobs SET status = 'success', updated_at = NOW() WHERE id = $1", [job.id]);
-        console.log(`✅ [SUCCESS] Hoàn thành Job ${job.id}`);
+        console.log('\n===================================================');
+        console.log('🎥 FINAL PROMPT (VIDEO)');
+        console.log('===================================================');
+        console.log(videoPromptText || '❌ Không có template video');
 
     } catch (error) {
-        console.error(`❌ [ERROR] Job ${job.id}:`, error.message);
-        await client.query("UPDATE generation_jobs SET status = 'failed', error_log = $1, updated_at = NOW() WHERE id = $2", [error.message, job.id]);
+        console.error('\n❌ LỖI TRONG QUÁ TRÌNH CHẠY DEMO:');
+        console.error(error.message);
     } finally {
-        if (browser) {
-            await browser.close().catch(() => {});
-        }
+        // Luôn nhớ đóng kết nối DB dù thành công hay thất bại
+        await client.end();
+        console.log('\n🔌 Đã ngắt kết nối Database.');
     }
 }
 
-async function workerLoop() {
-    await client.connect();
-    console.log("👷 Worker đã kết nối Database. Đang chờ Job mới...");
-    while (true) {
-        try {
-            const res = await client.query(`
-                SELECT id, product_code, job_type, prompt_text 
-                FROM generation_jobs 
-                WHERE status = 'pending' 
-                ORDER BY created_at ASC 
-                FOR UPDATE SKIP LOCKED LIMIT 1
-            `);
-            if (res.rows.length > 0) {
-                await processJob(res.rows[0]);
-            } else {
-                await new Promise(r => setTimeout(r, 5000));
-            }
-        } catch (err) {
-            console.error("Database polling error:", err);
-            await new Promise(r => setTimeout(r, 5000));
-        }
-    }
-}
-
-if (!fs.existsSync(OUTPUT_IMG_DIR)) fs.mkdirSync(OUTPUT_IMG_DIR, { recursive: true });
-if (!fs.existsSync(OUTPUT_VID_DIR)) fs.mkdirSync(OUTPUT_VID_DIR, { recursive: true });
-workerLoop();
+// Thực thi demo
+runDemo();

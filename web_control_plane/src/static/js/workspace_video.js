@@ -1,70 +1,165 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Tự động load nguồn dữ liệu khi vào trang Video
-    loadVideoSources();
+    initTreeDropdownEvents();
+    loadVideoSources(); // Gọi API thật ngay khi load
 });
 
+// =========================================
+// 1. TẢI DỮ LIỆU TỪ API THẬT
+// =========================================
 async function loadVideoSources() {
-    const selector = document.getElementById('vidSmartSelector');
-    selector.innerHTML = '<option value="">-- Đang quét hệ thống file... --</option>';
+    const label = document.getElementById('treeSelectLabel');
+    label.innerHTML = `<i class="spinner-border spinner-border-sm me-2"></i> Đang quét hệ thống file...`;
 
     try {
         const response = await fetch('/api/scanned-sources');
         const data = await response.json();
         
         if (!data.sources || data.sources.length === 0) {
-            selector.innerHTML = '<option value="">(Trống) Chưa có ảnh nào trong /storage/output_images</option>';
+            label.innerHTML = `<i class="bi bi-exclamation-triangle me-2 text-warning"></i> (Trống) Chưa có ảnh nào trong /storage/output_images`;
             return;
         }
 
-        selector.innerHTML = '<option value="">-- Chọn Nguồn Hình Ảnh (Render Video) --</option>';
+        // Đổ data từ API vào hàm vẽ HTML
+        renderTreeMenu(data.sources);
 
-        data.sources.forEach(source => {
-            const option = document.createElement('option');
-            option.value = source.folder; 
-            
-            // 🔥 Cập nhật hiển thị: MÃ SẢN PHẨM - TÊN SẢN PHẨM (SỐ LƯỢNG ẢNH)
-            option.text = `📁 ${source.folder.toUpperCase()} - ${source.product_name} (${source.image_count} ảnh)`;
-            
-            // Lưu mảng ảnh
-            option.dataset.images = JSON.stringify(source.images);
-            
-            // THÊM MỚI: Lưu cục feature vào dataset để dùng ở hàm loadProductContext
-            option.dataset.feature = JSON.stringify(source.feature || null); 
-
-            selector.appendChild(option);
-        });
     } catch (error) {
         console.error("Lỗi khi quét nguồn dữ liệu video:", error);
-        selector.innerHTML = '<option value="">⚠️ Lỗi kết nối hệ thống</option>';
+        label.innerHTML = `<i class="bi bi-wifi-off me-2 text-danger"></i> ⚠️ Lỗi kết nối hệ thống`;
     }
 }
 
-// Hàm này sẽ được gọi khi bạn chọn một option trong Select
+// =========================================
+// 2. VẼ HTML GIAO DIỆN CÂY THƯ MỤC
+// =========================================
+function renderTreeMenu(dataList) {
+    const dropdown = document.getElementById('treeSelectDropdown');
+    const label = document.getElementById('treeSelectLabel');
+    
+    label.innerHTML = `<i class="bi bi-collection-play me-2"></i> -- Chọn thư mục hoặc concept --`;
+    let htmlContent = '';
+
+    dataList.forEach(item => {
+        const childId = `child-${item.folder}`;
+        // Mã hóa JSON feature để nhét vào attribute an toàn
+        const featureStr = encodeURIComponent(JSON.stringify(item.feature || null)); 
+
+        // HTML cho thư mục cha (Sản phẩm)
+        htmlContent += `
+            <div class="tree-node">
+                <div class="tree-item-row">
+                    <div class="tree-item-content" onclick="selectTreeItem('${item.folder}', '${item.folder.toUpperCase()} (Tất cả Concept)', '${featureStr}')">
+                        <i class="bi bi-folder-fill text-warning me-2"></i>
+                        <span class="fw-bold">${item.folder.toUpperCase()} - ${item.product_name}</span>
+                        <span class="badge bg-secondary badge-count">${item.image_count}</span>
+                    </div>
+                    ${item.concepts && item.concepts.length > 0 ? `
+                        <button type="button" class="tree-toggle-btn" onclick="toggleTreeChildren('${childId}', this, event)">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                    ` : ''}
+                </div>
+        `;
+
+        // HTML cho thư mục con (Concept)
+        if (item.concepts && item.concepts.length > 0) {
+            htmlContent += `<div class="tree-children" id="${childId}">`;
+            item.concepts.forEach(concept => {
+                // VALUE lưu cả SP và Concept: sp003/concept-4
+                const conceptValue = `${item.folder}/concept-${concept.id}`;
+                const conceptLabel = `${item.folder.toUpperCase()} ➔ Concept ${concept.id}`;
+                
+                htmlContent += `
+                    <div class="tree-child-item" onclick="selectTreeItem('${conceptValue}', '${conceptLabel}', '${featureStr}')">
+                        <i class="bi bi-film text-muted me-2"></i>
+                        <span class="tech-font text-light" style="font-size: 0.9rem;">${concept.name}</span>
+                        <span class="badge bg-dark badge-count">${concept.image_count}</span>
+                    </div>
+                `;
+            });
+            htmlContent += `</div>`; 
+        }
+        
+        htmlContent += `</div>`; 
+    });
+
+    dropdown.innerHTML = htmlContent;
+}
+
+// =========================================
+// 3. LOGIC SỰ KIỆN MENU
+// =========================================
+function initTreeDropdownEvents() {
+    const trigger = document.getElementById('treeSelectTrigger');
+    const dropdown = document.getElementById('treeSelectDropdown');
+
+    trigger.addEventListener('click', () => {
+        dropdown.classList.toggle('show');
+        trigger.classList.toggle('active');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!trigger.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.classList.remove('show');
+            trigger.classList.remove('active');
+        }
+    });
+}
+
+function toggleTreeChildren(childId, btnElement, event) {
+    event.stopPropagation(); // Ngăn click lan ra ngoài
+    const childDiv = document.getElementById(childId);
+    if(childDiv) {
+        childDiv.classList.toggle('show');
+        btnElement.classList.toggle('expanded');
+    }
+}
+
+function selectTreeItem(selectedValue, displayLabel, encodedFeatureStr) {
+    const trigger = document.getElementById('treeSelectTrigger');
+    const dropdown = document.getElementById('treeSelectDropdown');
+    const label = document.getElementById('treeSelectLabel');
+    
+    label.innerHTML = `<i class="bi bi-check2-circle text-success me-2"></i> ${displayLabel}`;
+    label.classList.add('text-white');
+    
+    dropdown.classList.remove('show');
+    trigger.classList.remove('active');
+
+    // Lưu vào input ẩn
+    const hiddenInput = document.getElementById('vidSmartSelector');
+    hiddenInput.value = selectedValue;
+    hiddenInput.dataset.feature = encodedFeatureStr; 
+    
+    loadProductContext();
+}
+
+// =========================================
+// 4. XỬ LÝ CONTEXT FEATURE
+// =========================================
 function loadProductContext() {
-    const selector = document.getElementById('vidSmartSelector');
-    const featureContainer = document.getElementById('featureFlagsContainer'); // Gọi tới div chứa Feature
+    const hiddenInput = document.getElementById('vidSmartSelector');
+    const featureContainer = document.getElementById('featureFlagsContainer');
     const submitBtn = document.getElementById('submitVideoBtn');
     
-    const selectedOption = selector.options[selector.selectedIndex];
+    const selectedValue = hiddenInput.value;
     
-    // Nếu chọn quay về option mặc định (value rỗng)
-    if (!selectedOption.value) {
+    if (!selectedValue) {
         featureContainer.innerHTML = '<p class="text-muted small mb-0 fst-italic">Vui lòng chọn sản phẩm để hiển thị thuộc tính...</p>';
         if (submitBtn) submitBtn.disabled = true;
         return;
     }
 
-    const folderName = selectedOption.value;
-    const imagesList = JSON.parse(selectedOption.dataset.images || '[]');
+    let featureData = null;
+    try {
+        const rawFeature = hiddenInput.dataset.feature;
+        if (rawFeature && rawFeature !== "null" && rawFeature !== "undefined") {
+            featureData = JSON.parse(decodeURIComponent(rawFeature));
+        }
+    } catch (e) {
+        console.error("Lỗi parse feature data:", e);
+    }
     
-    // THÊM MỚI: Parse dữ liệu feature từ dataset
-    const featureData = JSON.parse(selectedOption.dataset.feature || 'null');
-    
-    console.log(`Đã chọn nguồn: ${folderName}, với các file:`, imagesList);
-    
-    // THÊM MỚI: Xử lý hiển thị UI cho Feature
     if (featureData) {
-        // Render thông số nếu sản phẩm có gán feature
         featureContainer.innerHTML = `
             <div class="text-info mb-0">
                 <strong><i class="bi bi-sliders"></i> Thuộc tính đang kích hoạt:</strong>
@@ -75,29 +170,83 @@ function loadProductContext() {
             </div>
         `;
     } else {
-        // Render cảnh báo nếu không có feature
         featureContainer.innerHTML = `
             <p class="text-warning small mb-0 fst-italic">Sản phẩm này chưa được liên kết thuộc tính tự động nào.</p>
         `;
     }
     
-    // Mở khóa nút submit
     if (submitBtn) submitBtn.disabled = false;
 }
 
-// Thay thế đoạn code gây ra alert lỗi bằng đoạn này:
-async function submitVideoJob() {
-    const selector = document.getElementById('vidSmartSelector');
-    const productCode = selector.value; // Cái này là folder name (vd: sp083)
+// =========================================
+// 5. HIỂN THỊ MODAL THÔNG BÁO & XÁC NHẬN
+// =========================================
 
+// Hàm hiển thị Popup Custom Alert thay cho alert() mặc định
+function showCustomAlert(title, message, isError = false) {
+    document.getElementById('alertModalTitle').innerHTML = title;
+    document.getElementById('alertModalBody').innerHTML = message;
+    
+    const headerTitle = document.getElementById('alertModalTitle');
+    if (isError) {
+        headerTitle.className = "modal-title w-100 text-center text-danger";
+    } else {
+        headerTitle.className = "modal-title w-100 text-center text-success";
+    }
+    
+    // Sử dụng getOrCreateInstance để tối ưu bộ nhớ
+    const alertModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('customAlertModal'));
+    alertModal.show();
+}
+
+// Hàm kích hoạt Confirm Modal khi bấm Submit Form
+function triggerVideoJob(event) {
+    if (event) event.preventDefault(); // Ngăn trình duyệt reload trang
+    
+    const hiddenInput = document.getElementById('vidSmartSelector');
+    const productCode = hiddenInput.value; 
+    const aiModel = document.getElementById('aiModelSelector').value;
+
+    // Validate nhanh
     if (!productCode) {
-        alert("Vui lòng chọn nguồn dữ liệu!");
+        showCustomAlert(
+            "<i class='bi bi-exclamation-triangle'></i> Thiếu dữ liệu", 
+            "Vui lòng chọn Nguồn Dữ Liệu (Sản phẩm/Concept) trước khi chạy!", 
+            true
+        );
         return;
     }
+
+    // Đổ dữ liệu hiển thị vào Modal Confirm
+    document.getElementById('confirmSourceText').innerText = productCode;
+    document.getElementById('confirmModelText').innerText = aiModel.toUpperCase();
+    
+    // Sử dụng getOrCreateInstance
+    const confirmModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmSubmitModal'));
+    confirmModal.show();
+}
+
+// Gắn sự kiện submit cho form
+document.getElementById('videoJobForm')?.addEventListener('submit', triggerVideoJob);
+
+// =========================================
+// 6. THỰC THI FETCH API (GỌI TỪ NÚT XÁC NHẬN TRONG MODAL)
+// =========================================
+async function executeVideoJob() {
+    // Ẩn modal confirm đi
+    const confirmModalEl = document.getElementById('confirmSubmitModal');
+    const confirmModal = bootstrap.Modal.getInstance(confirmModalEl);
+    if(confirmModal) confirmModal.hide();
+
+    // Lấy lại các giá trị input
+    const hiddenInput = document.getElementById('vidSmartSelector');
+    const productCode = hiddenInput.value;
+    const aiModel = document.getElementById('aiModelSelector').value;
 
     try {
         const formData = new FormData();
         formData.append('product_code', productCode);
+        formData.append('ai_model', aiModel);
 
         const response = await fetch('/jobs/video', {
             method: 'POST',
@@ -107,15 +256,19 @@ async function submitVideoJob() {
         const result = await response.json();
         
         if (response.ok) {
-            console.log("✅ Đẩy job video thành công:", result);
-            alert("Đã đẩy lệnh vào hàng đợi thành công!");
-            // Gọi hàm refresh danh sách hàng đợi nếu có
+            console.log(`✅ Đẩy job video thành công (Model: ${aiModel}):`, result);
+            showCustomAlert(
+                "<i class='bi bi-check-circle'></i> Thành công!", 
+                `Đã đẩy lệnh vào hàng đợi thành công sử dụng mô hình <strong>${aiModel.toUpperCase()}</strong>!`
+            );
+            
+            // Reload lại bảng danh sách nếu hàm fetchJobs tồn tại ở file khác
             if (typeof fetchJobs === 'function') fetchJobs(); 
         } else {
-            alert("Lỗi: " + result.detail);
+            showCustomAlert("<i class='bi bi-x-octagon'></i> Lỗi hệ thống", result.detail || "Không thể đẩy job.", true);
         }
     } catch (err) {
         console.error("Lỗi khi gửi job video:", err);
-        alert("Không thể kết nối tới server!");
+        showCustomAlert("<i class='bi bi-wifi-off'></i> Mất kết nối", "Không thể kết nối tới server! Vui lòng kiểm tra mạng.", true);
     }
 }

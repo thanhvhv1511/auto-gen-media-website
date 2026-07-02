@@ -1,0 +1,35 @@
+<div class="row g-4 h-100" style="min-height: 75vh;">
+    <div class="col-12">
+        <div class="card shadow-lg border-0 h-100" style="background-color: #1a1d21;"> 
+            
+            <div class="card-header d-flex justify-content-between align-items-center py-3 border-0" 
+                 style="background: linear-gradient(180deg, #2b3035 0%, #212529 100%); border-bottom: 2px solid #fd7e14 !important;">
+                
+                <h5 class="mb-0 fw-bold text-white" style="letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                    <i class="bi bi-person-arms-up me-2" style="color: #fd7e14;"></i> Ma Trận Tư Thế Ảnh (Poses)
+                </h5>
+                
+                <button class="btn btn-sm px-3 fw-semibold shadow-sm text-white" style="background-color: #fd7e14; border-radius: 6px;" onclick="openPoseModal()">
+                    <i class="bi bi-plus-lg me-1"></i> Thêm Tư Thế
+                </button>
+            </div>
+            
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-dark matrix-table align-middle mb-0">
+                        <thead id="poseTableHeader">
+                            </thead>
+                        <tbody id="poseTableBody">
+                            <tr>
+                                <td colspan="10" class="text-center py-5 text-muted">
+                                    <div class="spinner-border spinner-border-sm me-2" style="color: #fd7e14;" role="status"></div>
+                                    Đang tải dữ liệu tư thế...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

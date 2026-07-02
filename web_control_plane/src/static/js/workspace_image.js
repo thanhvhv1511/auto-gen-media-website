@@ -31,6 +31,7 @@ function initJobFormSelects() {
 }
 
 // Đảm bảo chạy khi DOM đã sẵn sàng
+// Đảm bảo chạy khi DOM đã sẵn sàng
 document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('submitBtn');
     
@@ -55,14 +56,39 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('loop_count', document.getElementById('loopCount').value);
 
             try {
+                // LƯU Ý: Đảm bảo route này đã đúng (có cần thêm /api/jobs/image không?)
                 const response = await fetch('/jobs/image', { method: 'POST', body: formData });
-                if (!response.ok) throw new Error('Lỗi server: ' + response.statusText);
+                
+                // === XỬ LÝ ĐỌC LỖI CHI TIẾT TỪ BACKEND ===
+                if (!response.ok) {
+                    let errorDetail = response.statusText;
+                    try {
+                        // Cố gắng parse body trả về thành JSON (FastAPI thường trả về JSON chứa key "detail")
+                        const errorData = await response.json();
+                        console.error("🔥 Dữ liệu lỗi từ Backend (JSON):", errorData);
+                        
+                        // Lọc lấy chi tiết lỗi để hiển thị cho người dùng
+                        errorDetail = errorData.detail 
+                                        ? (typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail)) 
+                                        : JSON.stringify(errorData);
+                    } catch (parseErr) {
+                        // Nếu backend không trả về JSON thì đọc dạng Text
+                        const errorText = await response.text();
+                        console.error("🔥 Dữ liệu lỗi từ Backend (Text):", errorText);
+                        if (errorText) errorDetail = errorText;
+                    }
+                    
+                    throw new Error(`[Mã lỗi: ${response.status}] ${errorDetail}`);
+                }
                 
                 form.reset();
                 if (typeof fetchJobs === 'function') fetchJobs();
+                console.log("✅ Đẩy job ảnh thành công!");
+
             } catch (err) {
                 console.error("❌ Submit lỗi:", err);
-                alert("Đẩy lệnh không thành công!");
+                // Hiển thị alert chứa chính xác nguyên nhân lỗi
+                alert("Đẩy lệnh thất bại:\n" + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-rocket-takeoff-fill"></i> Đẩy Lệnh Vào Hàng Đợi';

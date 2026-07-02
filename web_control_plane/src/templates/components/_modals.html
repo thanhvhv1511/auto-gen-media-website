@@ -238,3 +238,172 @@
         </div>
     </div>
 </div>
+
+
+<div class="modal fade" id="confirmSubmitModal" tabindex="-1" aria-labelledby="confirmSubmitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: #1e1e2f; border: 1px solid #444;">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title text-info" id="confirmSubmitModalLabel">
+                    <i class="bi bi-question-square me-2"></i>Xác nhận khởi chạy
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-light">
+                <p>Bạn sắp đẩy một lệnh Render Video mới vào hệ thống. Vui lòng kiểm tra lại thông số:</p>
+                <div class="p-3 rounded mb-2" style="background: rgba(0,0,0,0.3); border: 1px solid #333;">
+                    <ul class="mb-0 tech-font" style="list-style: none; padding-left: 0; font-size: 0.9rem;">
+                        <li class="mb-2">📁 <span class="text-muted">Target:</span> <strong id="confirmSourceText" class="text-warning">...</strong></li>
+                        <li>🤖 <span class="text-muted">AI Model:</span> <strong id="confirmModelText" class="text-success">...</strong></li>
+                    </ul>
+                </div>
+                <p class="small text-muted mb-0 fst-italic">Tác vụ này sẽ được đưa vào hàng đợi Worker tương ứng.</p>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-outline-secondary tech-font" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn btn-primary tech-font" onclick="executeVideoJob()">
+                    <i class="bi bi-play-fill me-1"></i> Khởi chạy ngay
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="customAlertModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="background-color: #1e1e2f; border: 1px solid #444;">
+            <div class="modal-header border-bottom-0 pb-0" id="alertModalHeader">
+                <h6 class="modal-title w-100 text-center" id="alertModalTitle">Thông báo</h6>
+            </div>
+            <div class="modal-body text-center text-light pt-3 pb-4">
+                <p id="alertModalBody" class="mb-0 small"></p>
+            </div>
+            <div class="modal-footer border-top-0 justify-content-center pt-0">
+                <button type="button" class="btn btn-sm btn-outline-light px-4" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="backgroundModal" tabindex="-1" aria-labelledby="backgroundModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold" id="backgroundModalLabel">Thêm Bối Cảnh Mới</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="backgroundForm">
+                    <input type="hidden" id="modalBgId">
+
+                    <div class="mb-3">
+                        <label for="modalBgName" class="form-label text-secondary fw-semibold">Tên bối cảnh <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="modalBgName" required placeholder="Nhập tên bối cảnh...">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="modalBgText" class="form-label text-secondary fw-semibold">Nội dung mô tả (Text) <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-dark text-white border-secondary" id="modalBgText" rows="4" required placeholder="Mô tả chi tiết bối cảnh..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="modalBgWeight" class="form-label text-secondary fw-semibold">Trọng số</label>
+                        <input type="number" class="form-control bg-dark text-white border-secondary" id="modalBgWeight" value="10" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn btn-primary px-4 fw-semibold" onclick="submitBackgroundForm()">
+                    <i class="bi bi-floppy me-1"></i> Lưu lại
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="videoSegmentModal" tabindex="-1" aria-labelledby="videoSegmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content text-bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold text-purple" id="videoSegmentModalLabel"><i class="bi bi-film me-2"></i> Thêm Phân Cảnh Mới</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="videoSegmentForm">
+                    <input type="hidden" id="modalVideoSegId">
+
+                    <div class="row mb-3">
+                        <div class="col-md-9">
+                            <label for="modalVideoSegName" class="form-label text-secondary fw-semibold">Tên phân cảnh <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" id="modalVideoSegName" required placeholder="VD: Cảnh 1: Cận mặt cười tươi...">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="modalVideoSegWeight" class="form-label text-secondary fw-semibold">Thứ tự/Trọng số</label>
+                            <input type="number" class="form-control bg-dark text-white border-secondary" id="modalVideoSegWeight" value="1">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="modalVideoSegPrompt" class="form-label text-secondary fw-semibold">Nội dung Prompt Video <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-dark text-white border-secondary tech-font" id="modalVideoSegPrompt" rows="5" required placeholder="Nhập prompt chi tiết cho video..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn text-white px-4 fw-semibold" style="background-color: #a855f7;" onclick="submitVideoSegmentForm()">
+                    <i class="bi bi-floppy me-1"></i> Lưu lại
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="poseModal" tabindex="-1" aria-labelledby="poseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content text-bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold" style="color: #fd7e14;" id="poseModalLabel">
+                    <i class="bi bi-person-arms-up me-2"></i> Thêm Tư Thế Mới
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="poseForm">
+                    <input type="hidden" id="modalPoseId">
+
+                    <div class="row mb-3">
+                        <div class="col-md-5">
+                            <label for="modalPoseName" class="form-label text-secondary fw-semibold">Tên tư thế <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" id="modalPoseName" required placeholder="VD: Bắn tim, Khoanh tay...">
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label for="modalPoseLabel" class="form-label text-secondary fw-semibold">Phân loại (Label) <span class="text-danger">*</span></label>
+                            <select class="form-select bg-dark text-white border-secondary" id="modalPoseLabel" required>
+                                <option value="" disabled selected>-- Đang tải danh sách... --</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <label for="modalPoseWeight" class="form-label text-secondary fw-semibold">Trọng số</label>
+                            <input type="number" class="form-control bg-dark text-white border-secondary" id="modalPoseWeight" value="10">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="modalPosePrompt" class="form-label text-secondary fw-semibold">Nội dung Prompt <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-dark text-white border-secondary tech-font" id="modalPosePrompt" rows="4" required placeholder="Nhập prompt chi tiết cho tư thế này..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn text-white px-4 fw-semibold" style="background-color: #fd7e14;" onclick="submitPoseForm()">
+                    <i class="bi bi-floppy me-1"></i> Lưu lại
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -10,11 +10,23 @@
                 </div>
                 <div class="card-body">
                     <form id="videoJobForm">
+                        
                         <div class="mb-4">
                             <label class="form-label text-info">1. Chọn Nguồn Dữ Liệu (Source)</label>
-                            <select class="form-select tech-font border-info" id="vidSmartSelector" onchange="loadProductContext()">
-                                <option value="">-- Đang tải dữ liệu sản phẩm... --</option>
-                            </select>
+                            
+                            <div class="tree-select-container">
+                                <input type="hidden" id="vidSmartSelector" value="" data-feature="">
+                                
+                                <div class="tree-select-trigger" id="treeSelectTrigger">
+                                    <span id="treeSelectLabel" class="tech-font">
+                                        <i class="bi bi-hourglass-split me-2"></i> -- Đang tải dữ liệu... --
+                                    </span>
+                                    <i class="bi bi-chevron-down"></i>
+                                </div>
+
+                                <div class="tree-select-dropdown" id="treeSelectDropdown">
+                                    </div>
+                            </div>
                         </div>
                         
                         <div class="mb-4">
@@ -30,6 +42,14 @@
                                 <span class="badge bg-success bg-opacity-25 text-success">Auto-sync</span>
                             </label>
                             <textarea class="form-control tech-font text-muted" id="vidLivePrompt" rows="5" readonly style="background: #000; border-color: #333; font-size: 0.8rem;">Đang chờ dữ liệu...</textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-warning">2. Chọn Mô Hình AI (AI Model)</label>
+                            <select class="form-select tech-font border-warning" id="aiModelSelector">
+                                <option value="flow" selected>🚀 Flow (Mặc định)</option>
+                                <option value="gemini">✨ Gemini</option>
+                                </select>
                         </div>
 
                         <div class="mb-4 d-none">

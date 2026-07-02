@@ -1,0 +1,119 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Dự Đoán Bóng Đá</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+
+    <!-- Khu vực Đăng nhập -->
+    <div id="loginSection" class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md mt-10">
+        <h2 class="text-2xl font-bold mb-4 text-center text-blue-600">Đăng Nhập</h2>
+        <input type="text" id="username" placeholder="Tên đăng nhập" class="w-full p-2 mb-3 border rounded">
+        <input type="password" id="password" placeholder="Mật khẩu" class="w-full p-2 mb-4 border rounded">
+        <button onclick="login()" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Vào Hệ Thống</button>
+    </div>
+
+    <!-- Khu vực Đặt cược (Ẩn mặc định) -->
+    <div id="bettingSection" class="max-w-3xl mx-auto hidden mt-10">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold">Danh sách trận đấu</h2>
+            <span id="welcomeMsg" class="font-semibold text-gray-700"></span>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <div class="flex justify-between border-b pb-4 mb-4">
+                <span class="text-xl font-bold">Arsenal vs Manchester City</span>
+                <span class="text-gray-500">Kèo T/X: 2.5</span>
+            </div>
+
+            <!-- Nút chọn loại cược -->
+            <div class="mb-4">
+                <label class="block font-semibold mb-2">Chọn loại dự đoán:</label>
+                <select id="betType" class="w-full p-2 border rounded" onchange="toggleBetOptions()">
+                    <option value="ou">Tài / Xỉu (Over/Under)</option>
+                    <option value="score">Dự đoán tỷ số chính xác</option>
+                </select>
+            </div>
+
+            <!-- Input Tài/Xỉu -->
+            <div id="ouOptions" class="mb-4">
+                <label class="block font-semibold mb-2">Lựa chọn:</label>
+                <select id="ouValue" class="w-full p-2 border rounded">
+                    <option value="Over">Tài (Over 2.5)</option>
+                    <option value="Under">Xỉu (Under 2.5)</option>
+                </select>
+            </div>
+
+            <!-- Input Tỷ số -->
+            <div id="scoreOptions" class="mb-4 hidden">
+                <label class="block font-semibold mb-2">Nhập tỷ số (Ví dụ: 2-1):</label>
+                <input type="text" id="scoreValue" placeholder="Nhập tỷ số..." class="w-full p-2 border rounded">
+            </div>
+
+            <!-- Tiền cược và Nút Submit -->
+            <div class="mb-4">
+                <label class="block font-semibold mb-2">Số điểm/tiền:</label>
+                <input type="number" id="betAmount" class="w-full p-2 border rounded" value="100">
+            </div>
+            
+            <button onclick="placeBet()" class="w-full bg-green-600 text-white p-3 rounded font-bold hover:bg-green-700">Xác Nhận Dự Đoán</button>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        async function login() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+
+            // Gọi API giả lập (trong thực tế sẽ fetch tới backend)
+            if(user === 'thanhvhv' && pass === 'password123') {
+                currentUser = user;
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('bettingSection').classList.remove('hidden');
+                document.getElementById('welcomeMsg').innerText = `Xin chào, ${currentUser}!`;
+            } else {
+                alert('Sai thông tin đăng nhập!');
+            }
+        }
+
+        function toggleBetOptions() {
+            const type = document.getElementById('betType').value;
+            if (type === 'ou') {
+                document.getElementById('ouOptions').classList.remove('hidden');
+                document.getElementById('scoreOptions').classList.add('hidden');
+            } else {
+                document.getElementById('ouOptions').classList.add('hidden');
+                document.getElementById('scoreOptions').classList.remove('hidden');
+            }
+        }
+
+        function placeBet() {
+            const type = document.getElementById('betType').value;
+            const amount = document.getElementById('betAmount').value;
+            let value = type === 'ou' ? document.getElementById('ouValue').value : document.getElementById('scoreValue').value;
+
+            if (type === 'score' && !value.match(/^\d+-\d+$/)) {
+                alert('Vui lòng nhập định dạng tỷ số hợp lệ (VD: 2-1)');
+                return;
+            }
+
+            const payload = {
+                username: currentUser,
+                matchId: 1,
+                betType: type,
+                betValue: value,
+                amount: amount
+            };
+
+            console.log('Sending to API:', payload);
+            alert(`Đã ghi nhận! Loại: ${type.toUpperCase()}, Lựa chọn: ${value}, Điểm: ${amount}`);
+        }
+    </script>
+</body>
+</html>

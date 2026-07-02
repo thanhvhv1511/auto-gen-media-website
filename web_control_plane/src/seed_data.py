@@ -57,11 +57,11 @@ def seed():
 
         # Seed Tư thế ảnh (ConceptPose) chia theo cấu trúc giải phẫu cơ thể
         poses = c_data.get("poses", {})
-        for body_part, pose_list in poses.items():
+        for pose_name, pose_list in poses.items():
             for pose in pose_list:
                 db.add(models.ConceptPose(
                     concept_id=concept.id,
-                    body_part=body_part,
+                    pose_name=pose_name,
                     text=pose["text"],
                     weight=pose.get("weight", 10)
                 ))

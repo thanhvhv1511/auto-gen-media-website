@@ -11,7 +11,7 @@ const OUTPUT_IMG_DIR = path.join(STORAGE_DIR, 'output_images');
 const OUTPUT_VID_DIR = path.join(STORAGE_DIR, 'output_videos');
 
 // Tạm thời comment CHROME_WS_ENDPOINT vì Dry Run không cần dùng đến trình duyệt Playwright
-// const CHROME_WS_ENDPOINT = process.env.CHROME_WS_ENDPOINT || 'http://host.docker.internal:9522';
+// const CHROME_WS_ENDPOINT = process.env.CHROME_WS_ENDPOINT || 'http://host.docker.internal:9521';
 
 async function processJob(job) {
     console.log(`\n==========================================`);
@@ -24,65 +24,100 @@ async function processJob(job) {
     try {
         // --- 1. LẤY DANH SÁCH ẢNH TẠM ---
         const productImgDir = path.join(OUTPUT_IMG_DIR, job.product_code);
-        let files = [];
+        let filesToProcess = [];
         
         if (fs.existsSync(productImgDir)) {
-            files = fs.readdirSync(productImgDir).filter(f => f.endsWith('.jpg') || f.endsWith('.png'));
+            const subDirs = fs.readdirSync(productImgDir);
+            for (const subDir of subDirs) {
+                const conceptDirPath = path.join(productImgDir, subDir);
+                if (fs.statSync(conceptDirPath).isDirectory()) {
+                    const imgFiles = fs.readdirSync(conceptDirPath).filter(f => f.endsWith('.jpg') || f.endsWith('.png'));
+                    for (const img of imgFiles) {
+                        filesToProcess.push({
+                            fileName: img,
+                            fullPath: path.join(conceptDirPath, img)
+                        });
+                    }
+                }
+            }
         }
 
-        const productVidDir = path.join(OUTPUT_VID_DIR, job.product_code);
-        if (!fs.existsSync(productVidDir)) fs.mkdirSync(productVidDir, { recursive: true });
-
-        if (files.length > 0) {
-            console.log(`🔍 [DRY RUN] Phát hiện thấy ${files.length} ảnh tạm trong folder. Bắt đầu vòng lặp xử lý...`);
+        if (filesToProcess.length > 0) {
+            console.log(`🔍 [DRY RUN] Phát hiện thấy ${filesToProcess.length} ảnh tạm. Bắt đầu xử lý...`);
             console.log(`📝 [PROMPT VIDEO]: ${job.prompt_text}`);
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const imageFilePath = path.join(productImgDir, file); // Đường dẫn đầy đủ của file ảnh hiện tại
-                
-                console.log(`\n  🔄 [DRY RUN] Đang xử lý ảnh ${i + 1}/${files.length}: ${file}`);
+            for (let i = 0; i < filesToProcess.length; i++) {
+                const { fileName: file, fullPath: imageFilePath } = filesToProcess[i];
+                console.log(`\n  🔄 [DRY RUN] Đang xử lý ảnh ${i + 1}/${filesToProcess.length}: ${file}`);
 
-                // Giả lập thời gian render cho TỪNG ảnh (3 giây/ảnh)
+                // --- 2. PHÂN GIẢI MÃ SP VÀ CONCEPT TỪ TÊN FILE ---
+                // Tên file mẫu: sp003_job19_concept-4_(3).jpg
+                // Regex tìm: chuỗi đầu tiên trước dấu _, và số sau chữ concept-
+                const regex = /^([a-zA-Z0-9]+)_job\d+_concept-(\d+)/;
+                const match = file.match(regex);
+                
+                let parsedProductCode = job.product_code; // Fallback
+                let parsedConceptId = 'unknown';
+
+                if (match) {
+                    parsedProductCode = match[1]; // Vd: sp003
+                    parsedConceptId = match[2];   // Vd: 4
+                    console.log(`  🎯 [PARSE] Bóc tách thành công -> Sản phẩm: ${parsedProductCode} | Concept: ${parsedConceptId}`);
+                }
+
+                // Tạo thư mục video xuất ra đồng bộ với cấu trúc ảnh (vd: output_videos/sp003/concept-4)
+                const productVidDir = path.join(OUTPUT_VID_DIR, job.product_code, `concept-${parsedConceptId}`);
+                if (!fs.existsSync(productVidDir)) fs.mkdirSync(productVidDir, { recursive: true });
+
+                // Giả lập thời gian render
                 console.log(`  ⏳ [DRY RUN] Đang render frame...`);
                 await new Promise(resolve => setTimeout(resolve, 3000)); 
 
                 // Tạo tên file video đầu ra
                 const fileNameWithoutExt = path.parse(file).name;
-                const targetVidPath = path.join(productVidDir, `${job.product_code}_${job.id}_${fileNameWithoutExt}_dryrun.mp4`);
+                const targetVidPath = path.join(productVidDir, `${fileNameWithoutExt}_dryrun.mp4`);
                 
                 // Tạo file video ảo
                 if (!fs.existsSync(targetVidPath)) {
                     fs.writeFileSync(targetVidPath, `MOCK_VIDEO_DATA_FOR_${file}`, 'utf-8');
-                    console.log(`  🎬 [DRY RUN] Đã tạo file video ảo tại: ${targetVidPath}`);
+                    console.log(`  🎬 [DRY RUN] Đã tạo video ảo: ${targetVidPath}`);
                 }
 
-                // Insert từng thành phẩm vào DB
+                // Insert vào DB
                 await client.query(
                     "INSERT INTO media_assets (product_id, media_type, file_path, job_id) VALUES ($1, $2, $3, $4)", 
                     [job.product_id, 'video', targetVidPath, job.id]
                 );
-                console.log(`  💾 [DRY RUN] Đã lưu DB Video Asset cho: ${fileNameWithoutExt}`);
+                console.log(`  💾 [DRY RUN] Đã lưu DB Video Asset.`);
 
-                // 🔥 THÊM MỚI: XÓA NGAY FILE ẢNH VỪA XỬ LÝ XONG
+                // Xóa ảnh gốc
                 if (fs.existsSync(imageFilePath)) {
                     fs.unlinkSync(imageFilePath);
-                    console.log(`  🗑️ [CLEANUP] Đã xóa ngay ảnh mồi sau khi render xong: ${file}`);
+                    console.log(`  🗑️ [CLEANUP] Đã xóa ảnh mồi: ${file}`);
                 }
             }
-        } else {
-            // Fallback: Xử lý nếu không có ảnh... (giữ nguyên như cũ)
         }
 
-        // --- 3. DỌN DẸP THƯ MỤC TRỐNG ---
-        // Sau khi chạy xong vòng lặp, các file ảnh đã bị xóa hết, giờ chỉ cần xóa thư mục rỗng
+        // --- 3. DỌN DẸP THƯ MỤC TRỐNG CẤP 2 ---
         if (fs.existsSync(productImgDir)) {
-            const remainingFiles = fs.readdirSync(productImgDir);
-            if (remainingFiles.length === 0) {
-                fs.rmdirSync(productImgDir); // Rmdir chỉ xóa được khi thư mục trống
+            // Xóa các thư mục concept-X rỗng trước
+            const subDirs = fs.readdirSync(productImgDir);
+            for (const subDir of subDirs) {
+                const conceptDirPath = path.join(productImgDir, subDir);
+                if (fs.statSync(conceptDirPath).isDirectory()) {
+                    if (fs.readdirSync(conceptDirPath).length === 0) {
+                        fs.rmdirSync(conceptDirPath);
+                        console.log(`  🧹 [CLEANUP] Đã xóa thư mục con rỗng: ${subDir}`);
+                    }
+                }
+            }
+            
+            // Nếu thư mục gốc (sp003) không còn thư mục con nào nữa thì xóa nốt
+            if (fs.readdirSync(productImgDir).length === 0) {
+                fs.rmdirSync(productImgDir); 
                 console.log(`\n🧹 [CLEANUP] Đã xóa thư mục rỗng của SP: ${job.product_code}`);
             } else {
-                console.log(`\n⚠️ [CLEANUP] Thư mục ${job.product_code} vẫn còn chứa file lạ chưa được dọn.`);
+                console.log(`\n⚠️ [CLEANUP] Thư mục ${job.product_code} vẫn còn chứa file/thư mục khác.`);
             }
         }
 
